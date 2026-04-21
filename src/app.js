@@ -17,6 +17,9 @@ app.use(express.json());
 // Swagger UI — available at /api-docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// Redirect root to the API docs
+app.get('/', (req, res) => res.redirect('/api-docs'));
+
 app.use('/api/languages', languagesRouter);
 app.use('/api/dialects', dialectsRouter);
 app.use('/api/entries', entriesRouter);
