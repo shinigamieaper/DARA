@@ -4,6 +4,54 @@ const requireApiKey = require('../middleware/auth');
 
 const router = Router();
 
+/**
+ * @swagger
+ * /entries:
+ *   get:
+ *     summary: List entries
+ *     description: >
+ *       Returns dictionary entries, ordered alphabetically by headword.
+ *       Both `dialect` and `language` filters are optional and can be
+ *       combined. Text matching is case-insensitive (`ILIKE`).
+ *     tags: [Entries]
+ *     parameters:
+ *       - in: query
+ *         name: dialect
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter by dialect name (e.g. `Ekiti Yoruba`) or numeric dialect ID.
+ *         example: Ekiti Yoruba
+ *       - in: query
+ *         name: language
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Filter by language name (e.g. `Yoruba`) or ISO 639-3 code (e.g. `yor`).
+ *         example: yor
+ *     responses:
+ *       200:
+ *         description: A list of entries.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Entry'
+ *             example:
+ *               - entry_id: 42
+ *                 headword: omi
+ *                 pos: noun
+ *                 dialect_id: 3
+ *                 dialect_name: Ekiti Yoruba
+ *                 language_name: Yoruba
+ *       500:
+ *         description: Database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // GET /api/entries — with optional ?dialect= and ?language= filters
 router.get('/', async (req, res) => {
   try {
@@ -37,6 +85,55 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /entries/{id}:
+ *   get:
+ *     summary: Get a single entry
+ *     description: >
+ *       Returns a dictionary entry by its numeric ID, including dialect and
+ *       language names and any associated metadata (a free-form JSON object).
+ *     tags: [Entries]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The numeric entry ID.
+ *         example: 42
+ *     responses:
+ *       200:
+ *         description: The requested entry with metadata.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EntryWithMetadata'
+ *             example:
+ *               entry_id: 42
+ *               headword: omi
+ *               pos: noun
+ *               dialect_id: 3
+ *               dialect_name: Ekiti Yoruba
+ *               language_name: Yoruba
+ *               metadata:
+ *                 definition: water
+ *                 tone: LH
+ *       404:
+ *         description: No entry found with the given ID.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Entry not found
+ *       500:
+ *         description: Database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // GET /api/entries/:id — returns single entry with metadata joined
 router.get('/:id', async (req, res) => {
   try {
@@ -58,6 +155,72 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /entries:
+ *   post:
+ *     summary: Create an entry
+ *     description: >
+ *       Inserts a new dictionary entry. Requires a valid API key in the
+ *       `x-api-key` request header.
+ *     tags: [Entries]
+ *     security:
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [headword, dialect_id]
+ *             properties:
+ *               headword:
+ *                 type: string
+ *                 description: The word or phrase being recorded.
+ *                 example: omi
+ *               dialect_id:
+ *                 type: integer
+ *                 description: ID of the dialect this entry belongs to.
+ *                 example: 3
+ *               pos:
+ *                 type: string
+ *                 description: Part of speech (e.g. noun, verb). Optional.
+ *                 example: noun
+ *     responses:
+ *       201:
+ *         description: Entry created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Entry'
+ *             example:
+ *               entry_id: 99
+ *               headword: omi
+ *               pos: noun
+ *               dialect_id: 3
+ *       400:
+ *         description: Missing required fields.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: headword and dialect_id are required
+ *       401:
+ *         description: Missing or invalid API key.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Unauthorized: invalid or missing API key"
+ *       500:
+ *         description: Database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // POST /api/entries — protected by x-api-key middleware
 router.post('/', requireApiKey, async (req, res) => {
   try {
