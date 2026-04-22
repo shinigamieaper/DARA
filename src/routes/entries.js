@@ -358,4 +358,76 @@ router.patch('/:id', requireApiKey, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /entries/{id}:
+ *   delete:
+ *     summary: Delete an entry
+ *     description: >
+ *       Permanently deletes an entry and any associated metadata row.
+ *       The two deletes run inside a single database transaction so
+ *       either both succeed or neither is applied. Requires `x-api-key`.
+ *     tags: [Entries]
+ *     security:
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The numeric entry ID.
+ *         example: 42
+ *     responses:
+ *       204:
+ *         description: Entry deleted successfully (no body returned).
+ *       401:
+ *         description: Missing or invalid API key.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Unauthorized: invalid or missing API key"
+ *       404:
+ *         description: No entry found with the given ID.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Entry not found
+ *       500:
+ *         description: Database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+// DELETE /api/entries/:id — protected by x-api-key middleware
+router.delete('/:id', requireApiKey, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM metadata WHERE entry_id = $1', [req.params.id]);
+    const { rowCount } = await client.query(
+      'DELETE FROM entries WHERE entry_id = $1',
+      [req.params.id]
+    );
+
+    if (rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Entry not found' });
+    }
+
+    await client.query('COMMIT');
+    res.status(204).send();
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
