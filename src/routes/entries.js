@@ -239,4 +239,123 @@ router.post('/', requireApiKey, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /entries/{id}:
+ *   patch:
+ *     summary: Update an entry
+ *     description: >
+ *       Partial update of an existing entry. Only the fields supplied in the
+ *       request body are changed; omitted fields are left untouched.
+ *       Requires a valid `x-api-key` header.
+ *     tags: [Entries]
+ *     security:
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The numeric entry ID.
+ *         example: 42
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               headword:
+ *                 type: string
+ *                 example: omi
+ *               pos:
+ *                 type: string
+ *                 nullable: true
+ *                 example: verb
+ *               dialect_id:
+ *                 type: integer
+ *                 example: 3
+ *     responses:
+ *       200:
+ *         description: Entry updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Entry'
+ *             example:
+ *               entry_id: 42
+ *               headword: omi
+ *               pos: verb
+ *               dialect_id: 3
+ *       400:
+ *         description: No updatable fields supplied.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: At least one of headword, pos, or dialect_id is required
+ *       401:
+ *         description: Missing or invalid API key.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Unauthorized: invalid or missing API key"
+ *       404:
+ *         description: No entry found with the given ID.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Entry not found
+ *       500:
+ *         description: Database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+// PATCH /api/entries/:id — protected by x-api-key middleware
+router.patch('/:id', requireApiKey, async (req, res) => {
+  try {
+    const allowed = ['headword', 'pos', 'dialect_id'];
+    const sets = [];
+    const params = [];
+
+    for (const field of allowed) {
+      if (req.body[field] !== undefined) {
+        params.push(req.body[field]);
+        sets.push(`${field} = $${params.length}`);
+      }
+    }
+
+    if (sets.length === 0) {
+      return res.status(400).json({
+        error: 'At least one of headword, pos, or dialect_id is required'
+      });
+    }
+
+    params.push(req.params.id);
+    const query = `
+      UPDATE entries
+      SET ${sets.join(', ')}
+      WHERE entry_id = $${params.length}
+      RETURNING *
+    `;
+
+    const { rows } = await pool.query(query, params);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Entry not found' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
