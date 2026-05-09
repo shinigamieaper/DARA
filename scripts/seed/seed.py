@@ -89,8 +89,8 @@ def _do_load(args) -> int:
             print(f"[load] refusing: source {tag!r} already has rows. "
                   f"Pass --force to override.", file=sys.stderr)
             return 1
-        inserted = LOADERS[args.dataset].load(csv_path, conn)
-        print(f"[load] {args.dataset}: inserted {inserted} rows")
+        result = LOADERS[args.dataset].load(csv_path, conn)
+        print(f"[load] {result.format_line().strip()}")
         return 0
     finally:
         conn.close()

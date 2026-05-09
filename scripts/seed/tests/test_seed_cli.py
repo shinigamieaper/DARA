@@ -82,7 +82,10 @@ def test_load_dispatch_force_overrides_source_check(monkeypatch, tmp_path):
     monkeypatch.setattr("seed.db.entries_row_count", lambda conn: 0)
     monkeypatch.setattr("seed.db.source_row_count", lambda conn, tag: 100)
     monkeypatch.setattr("seed.CLEAN_DIR", tmp_path)
-    monkeypatch.setattr("loaders.igbo_api.load", MagicMock(return_value=0))
+    monkeypatch.setattr(
+        "loaders.igbo_api.load",
+        MagicMock(return_value=db.LoadResult(dataset="igbo_api", sampled=0, inserted=0)),
+    )
 
     rc = seed.main(["load", "igbo_api", "--force"])
     assert rc == 0
