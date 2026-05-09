@@ -1,16 +1,63 @@
-"""VOA NER (Hausa) loader."""
+"""VOA NER (Hausa) loader.
+
+The original HF dataset (UdS-LSV/hausa_voa_ner) ships only as a Python
+loader script, which the modern `datasets` library refuses to execute.
+We bypass it and pull the underlying CoNLL-format TSVs directly from
+the upstream GitHub repo (uds-lsv/transfer-distant-transformer-african).
+"""
 import csv as _csv
 import json
 import random
 from pathlib import Path
 
 import pandas as pd
-from datasets import load_dataset as hf_load_dataset
+import requests
 
 import db
 from config import CAPS, RNG_SEED, SOURCE_TAGS
 
 SOURCE_TAG = SOURCE_TAGS["voa_ner"]
+
+_GITHUB_BASE = (
+    "https://github.com/uds-lsv/transfer-distant-transformer-african/"
+    "raw/master/data/hausa_ner/"
+)
+# HF script names "dev" what we call "validation" elsewhere; the on-disk
+# file is dev.tsv. We translate at parse time so downstream code keeps
+# the train/validation/test naming used everywhere else.
+_SPLIT_FILES = {
+    "train": "train_clean.tsv",
+    "validation": "dev.tsv",
+    "test": "test.tsv",
+}
+
+
+def _parse_conll(text: str) -> list[tuple[list[str], list[str]]]:
+    """Parse CoNLL-style 'token\\tlabel' lines into [(tokens, labels), ...].
+
+    Sentences are separated by blank lines. Empty/whitespace-only tokens
+    are skipped.
+    """
+    sentences: list[tuple[list[str], list[str]]] = []
+    tokens: list[str] = []
+    labels: list[str] = []
+    for line in text.splitlines():
+        if not line.strip():
+            if tokens:
+                sentences.append((tokens, labels))
+                tokens, labels = [], []
+            continue
+        parts = line.split("\t")
+        if len(parts) < 2:
+            # malformed line; treat as token-only with empty label
+            tokens.append(parts[0])
+            labels.append("")
+        else:
+            tokens.append(parts[0])
+            labels.append(parts[1])
+    if tokens:
+        sentences.append((tokens, labels))
+    return sentences
 
 
 def transform_entry(raw: dict) -> tuple[str, str, int, dict]:
@@ -30,20 +77,23 @@ def transform_entry(raw: dict) -> tuple[str, str, int, dict]:
 
 
 def download(raw_root: Path) -> Path:
-    """Download all three HF splits and write raw_root/voa_ner/voa_ner.json.
+    """Fetch the upstream CoNLL TSVs and write raw_root/voa_ner/voa_ner.json.
 
-    Each row gets a 'split' key added before writing so we can track provenance.
+    Each row of the output JSON is one sentence:
+        {"tokens": [...], "ner_tags": [...], "split": "train|validation|test"}
     """
     raw_root = Path(raw_root)
     raw_dir = raw_root / "voa_ner"
     raw_dir.mkdir(parents=True, exist_ok=True)
-    pooled = []
-    for split in ("train", "validation", "test"):
-        ds = hf_load_dataset("UdS-LSV/hausa_voa_ner", split=split)
-        for row in ds.to_list():
+    pooled: list[dict] = []
+    for split, filename in _SPLIT_FILES.items():
+        url = _GITHUB_BASE + filename
+        resp = requests.get(url, timeout=60)
+        resp.raise_for_status()
+        for tokens, labels in _parse_conll(resp.text):
             pooled.append({
-                "tokens": list(row.get("tokens") or []),
-                "ner_tags": list(row.get("ner_tags") or []),
+                "tokens": tokens,
+                "ner_tags": labels,
                 "split": split,
             })
     out = raw_dir / "voa_ner.json"

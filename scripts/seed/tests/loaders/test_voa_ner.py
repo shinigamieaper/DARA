@@ -40,25 +40,51 @@ def test_transform_dedups_and_caps(tmp_path):
     assert (df["dialect_id"] == "8").all()
 
 
-def test_download_pulls_all_three_splits(tmp_path):
+def test_download_pulls_all_three_splits_from_github(tmp_path):
+    """Download fetches CoNLL TSVs from the upstream GitHub mirror.
+
+    Each split's TSV body is short fixture content with two sentences
+    separated by blank lines. The implementation parses CoNLL into
+    {tokens, ner_tags, split} dicts."""
     raw_dir = tmp_path / "raw" / "voa_ner"
-    fake_ds = {
-        "train":      [{"tokens": ["a"], "ner_tags": [0]}],
-        "validation": [{"tokens": ["b"], "ner_tags": [0]}],
-        "test":       [{"tokens": ["c"], "ner_tags": [0]}],
+
+    fake_bodies = {
+        "train_clean.tsv": "ya\tO\nyi\tO\n\nsannu\tB-PER\n",
+        "dev.tsv":         "abc\tO\n\nxyz\tO\ndef\tO\n",
+        "test.tsv":        "one\tO\ntwo\tO\nthree\tO\n",
     }
 
-    def fake_load_dataset(name, split=None):
+    def fake_get(url, *args, **kwargs):
         m = MagicMock()
-        m.to_list.return_value = list(fake_ds[split])
+        m.raise_for_status.return_value = None
+        # last path segment of url is the filename
+        filename = url.rsplit("/", 1)[-1]
+        m.text = fake_bodies[filename]
         return m
 
-    with patch("loaders.voa_ner.hf_load_dataset", side_effect=fake_load_dataset):
+    with patch("loaders.voa_ner.requests.get", side_effect=fake_get) as get:
         voa_ner.download(raw_dir.parent)
 
+    assert get.call_count == 3
     out = json.loads((raw_dir / "voa_ner.json").read_text(encoding="utf-8"))
     splits = {row["split"] for row in out}
     assert splits == {"train", "validation", "test"}
+    # Each parsed sentence carries tokens and ner_tags arrays of equal length.
+    for row in out:
+        assert len(row["tokens"]) == len(row["ner_tags"])
+        assert row["tokens"]  # non-empty
+
+
+def test_parse_conll_splits_on_blank_lines():
+    text = "a\tO\nb\tO\n\nc\tB-PER\n"
+    sentences = voa_ner._parse_conll(text)
+    assert sentences == [(["a", "b"], ["O", "O"]), (["c"], ["B-PER"])]
+
+
+def test_parse_conll_handles_trailing_sentence_with_no_trailing_blank():
+    text = "x\tO\ny\tO"  # no trailing blank line
+    sentences = voa_ner._parse_conll(text)
+    assert sentences == [(["x", "y"], ["O", "O"])]
 
 
 def test_load_returns_load_result(tmp_path):
