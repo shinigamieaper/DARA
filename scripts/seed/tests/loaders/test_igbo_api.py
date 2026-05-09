@@ -43,7 +43,7 @@ def test_transform_entry_defaults_pos_to_unknown_when_missing():
 
 def test_transform_keeps_all_minority_and_caps_central(tmp_path):
     raw_dir = tmp_path / "raw"
-    raw_dir.mkdir()
+    (raw_dir / "igbo_api").mkdir(parents=True)
     # 3 Central, 1 Ehugbo, 1 Enuani; cap=3 means keep 1 Ehugbo + 1 Enuani + sample 1 from 3 Central.
     entries = (
         [{"word": f"central_{i}", "wordClass": "noun", "definitions": [],
@@ -53,7 +53,7 @@ def test_transform_keeps_all_minority_and_caps_central(tmp_path):
         + [{"word": "mmiri", "wordClass": "noun", "definitions": [],
             "examples": [], "dialects": ["Enuani"]}]
     )
-    (raw_dir / "igbo_api.json").write_text(json.dumps(entries), encoding="utf-8")
+    (raw_dir / "igbo_api" / "igbo_api.json").write_text(json.dumps(entries), encoding="utf-8")
 
     csv_path = igbo_api.transform(raw_dir, tmp_path / "clean", cap=3)
 
@@ -66,7 +66,7 @@ def test_transform_keeps_all_minority_and_caps_central(tmp_path):
 
 def test_transform_dedups_by_headword_and_dialect(tmp_path):
     raw_dir = tmp_path / "raw"
-    raw_dir.mkdir()
+    (raw_dir / "igbo_api").mkdir(parents=True)
     entries = [
         {"word": "akwa", "wordClass": "noun", "definitions": ["cloth"],
          "examples": [], "dialects": []},
@@ -75,7 +75,7 @@ def test_transform_dedups_by_headword_and_dialect(tmp_path):
         {"word": "akwa", "wordClass": "noun", "definitions": ["different"],
          "examples": [], "dialects": ["Ehugbo"]},
     ]
-    (raw_dir / "igbo_api.json").write_text(json.dumps(entries), encoding="utf-8")
+    (raw_dir / "igbo_api" / "igbo_api.json").write_text(json.dumps(entries), encoding="utf-8")
 
     csv_path = igbo_api.transform(raw_dir, tmp_path / "clean", cap=10)
 
@@ -89,8 +89,8 @@ def test_transform_uses_fixture_file_to_produce_csv():
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         raw = td / "raw"
-        raw.mkdir()
-        (raw / "igbo_api.json").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+        (raw / "igbo_api").mkdir(parents=True)
+        (raw / "igbo_api" / "igbo_api.json").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
         csv_path = igbo_api.transform(raw, td / "clean", cap=10)
         df = pd.read_csv(csv_path, dtype=str)
         # akwa/5, akwa/6, ulo/6, mmiri/7, anya/5, isi/5  -> 6 unique (headword, dialect_id) tuples
@@ -109,7 +109,7 @@ def test_download_uses_hf_dataset_first(tmp_path):
     with patch("loaders.igbo_api.hf_load_dataset", return_value=fake_ds) as load_ds:
         igbo_api.download(raw_dir)
     load_ds.assert_called_once_with("nkowaokwu/igbo_api")
-    assert (raw_dir / "igbo_api.json").exists()
+    assert (raw_dir / "igbo_api" / "igbo_api.json").exists()
 
 
 def test_download_falls_back_to_github_on_hf_failure(tmp_path):
@@ -122,7 +122,7 @@ def test_download_falls_back_to_github_on_hf_failure(tmp_path):
          patch("loaders.igbo_api.requests.get", return_value=fake_response) as get:
         igbo_api.download(raw_dir)
     assert get.called
-    assert (raw_dir / "igbo_api.json").exists()
+    assert (raw_dir / "igbo_api" / "igbo_api.json").exists()
 
 
 def test_load_delegates_to_db_load_csv(tmp_path):

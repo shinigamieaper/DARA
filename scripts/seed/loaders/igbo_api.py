@@ -35,20 +35,20 @@ def transform_entry(raw: dict) -> tuple[str, str, int, dict]:
     return headword, pos, dialect_id, jsonb
 
 
-def transform(raw_dir: Path, clean_dir: Path, cap: int | None = None) -> Path:
-    """Read raw_dir/igbo_api.json, sample with RNG_SEED, write clean CSV.
+def transform(raw_root: Path, clean_dir: Path, cap: int | None = None) -> Path:
+    """Read raw_root/igbo_api/igbo_api.json, sample with RNG_SEED, write clean CSV.
 
     cap defaults to CAPS["igbo_api"]["total"]. Minority dialects (Ehugbo,
     Enuani) are kept entirely; Central is sampled to fill the remainder.
     Dedup is by (headword, dialect_id).
     """
-    raw_dir = Path(raw_dir)
+    raw_root = Path(raw_root)
     clean_dir = Path(clean_dir)
     clean_dir.mkdir(parents=True, exist_ok=True)
     if cap is None:
         cap = CAPS["igbo_api"]["total"]
 
-    raw_entries = json.loads((raw_dir / "igbo_api.json").read_text(encoding="utf-8"))
+    raw_entries = json.loads((raw_root / "igbo_api" / "igbo_api.json").read_text(encoding="utf-8"))
     transformed = [transform_entry(e) for e in raw_entries]
 
     seen: set[tuple[str, int]] = set()
@@ -86,11 +86,12 @@ _GITHUB_RAW_URL = (
 )
 
 
-def download(raw_dir: Path) -> Path:
-    """Download IgboAPI to raw_dir/igbo_api.json. HF first, GitHub fallback."""
-    raw_dir = Path(raw_dir)
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    out = raw_dir / "igbo_api.json"
+def download(raw_root: Path) -> Path:
+    """Download IgboAPI to raw_root/igbo_api/igbo_api.json. HF first, GitHub fallback."""
+    raw_root = Path(raw_root)
+    out_dir = raw_root / "igbo_api"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / "igbo_api.json"
 
     try:
         ds = hf_load_dataset("nkowaokwu/igbo_api")
