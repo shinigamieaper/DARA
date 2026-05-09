@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 import pandas as pd
 from loaders import igbo_api
 
@@ -98,3 +99,37 @@ def test_transform_uses_fixture_file_to_produce_csv():
         assert "pos" in df.columns
         assert "dialect_id" in df.columns
         assert "jsonb_data" in df.columns
+
+
+def test_download_uses_hf_dataset_first(tmp_path):
+    raw_dir = tmp_path / "raw"
+    fake_ds = MagicMock()
+    fake_ds["train"].to_list.return_value = [{"word": "x", "wordClass": "n",
+                                              "definitions": [], "examples": [], "dialects": []}]
+    with patch("loaders.igbo_api.hf_load_dataset", return_value=fake_ds) as load_ds:
+        igbo_api.download(raw_dir)
+    load_ds.assert_called_once_with("nkowaokwu/igbo_api")
+    assert (raw_dir / "igbo_api.json").exists()
+
+
+def test_download_falls_back_to_github_on_hf_failure(tmp_path):
+    raw_dir = tmp_path / "raw"
+    fake_response = MagicMock()
+    fake_response.json.return_value = [{"word": "x", "wordClass": "n",
+                                        "definitions": [], "examples": [], "dialects": []}]
+    fake_response.raise_for_status.return_value = None
+    with patch("loaders.igbo_api.hf_load_dataset", side_effect=RuntimeError("HF down")), \
+         patch("loaders.igbo_api.requests.get", return_value=fake_response) as get:
+        igbo_api.download(raw_dir)
+    assert get.called
+    assert (raw_dir / "igbo_api.json").exists()
+
+
+def test_load_delegates_to_db_load_csv(tmp_path):
+    csv_path = tmp_path / "igbo_api_clean.csv"
+    csv_path.write_text("headword,pos,dialect_id,jsonb_data\n", encoding="utf-8")
+    fake_conn = MagicMock()
+    with patch("loaders.igbo_api.db.load_csv", return_value=42) as load_csv:
+        result = igbo_api.load(csv_path, fake_conn)
+    load_csv.assert_called_once_with(csv_path, fake_conn)
+    assert result == 42

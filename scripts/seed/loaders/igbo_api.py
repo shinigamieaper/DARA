@@ -5,7 +5,10 @@ import random
 from pathlib import Path
 
 import pandas as pd
+import requests
+from datasets import load_dataset as hf_load_dataset
 
+import db
 from config import CAPS, RNG_SEED, SOURCE_TAGS
 
 SOURCE_TAG = SOURCE_TAGS["igbo_api"]
@@ -75,3 +78,34 @@ def transform(raw_dir: Path, clean_dir: Path, cap: int | None = None) -> Path:
     out = clean_dir / "igbo_api_clean.csv"
     df.to_csv(out, index=False, encoding="utf-8", quoting=_csv.QUOTE_ALL)
     return out
+
+
+_GITHUB_RAW_URL = (
+    "https://raw.githubusercontent.com/nkowaokwu/igbo_api/main/"
+    "src/dictionaries/ig-en/ig-en.json"
+)
+
+
+def download(raw_dir: Path) -> Path:
+    """Download IgboAPI to raw_dir/igbo_api.json. HF first, GitHub fallback."""
+    raw_dir = Path(raw_dir)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    out = raw_dir / "igbo_api.json"
+
+    try:
+        ds = hf_load_dataset("nkowaokwu/igbo_api")
+        records = ds["train"].to_list()
+    except Exception as e:
+        print(f"[igbo_api] HF download failed ({e}); falling back to GitHub raw")
+        resp = requests.get(_GITHUB_RAW_URL, timeout=60)
+        resp.raise_for_status()
+        records = resp.json()
+
+    out.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
+    print(f"[igbo_api] wrote {len(records)} raw entries to {out}")
+    return out
+
+
+def load(csv_path: Path, conn) -> int:
+    """Insert the cleaned CSV via db.load_csv."""
+    return db.load_csv(csv_path, conn)
