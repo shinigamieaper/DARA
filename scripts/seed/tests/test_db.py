@@ -87,6 +87,26 @@ def test_load_csv_drops_null_headword_rows(tmp_path):
     assert cur.execute.call_count == 1
 
 
+def test_load_csv_keeps_row_whose_headword_is_literally_nan(tmp_path):
+    """A real headword 'nan' must NOT be dropped — only truly empty cells should be."""
+    csv_path = tmp_path / "sample_clean.csv"
+    pd.DataFrame([
+        {"headword": "nan", "pos": "noun", "dialect_id": "5",
+         "jsonb_data": '{"source": "IgboAPI"}'},
+    ]).to_csv(csv_path, index=False, encoding="utf-8", quoting=csv.QUOTE_ALL)
+
+    fake_conn = MagicMock()
+    fake_conn.__enter__.return_value = fake_conn
+    cur = fake_conn.cursor.return_value.__enter__.return_value
+
+    inserted = db.load_csv(csv_path, fake_conn)
+
+    assert inserted == 1
+    assert cur.execute.call_count == 1
+    params = cur.execute.call_args_list[0][0][1]
+    assert params[0] == "nan"
+
+
 def test_truncate_all_runs_truncate_with_cascade():
     fake_conn = MagicMock()
     fake_conn.__enter__.return_value = fake_conn

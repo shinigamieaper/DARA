@@ -57,13 +57,12 @@ def load_csv(csv_path, conn) -> int:
     `with conn:` context commits on clean exit and rolls back on exception.
     Returns the number of rows actually inserted.
     """
-    df = pd.read_csv(csv_path, dtype=str, encoding="utf-8")
+    df = pd.read_csv(csv_path, dtype=str, encoding="utf-8", keep_default_na=False)
     inserted = 0
     with conn:
         with conn.cursor() as cur:
             for row in df.itertuples(index=False):
-                headword_str = str(row.headword).strip()
-                if not headword_str or headword_str == "nan":
+                if not row.headword or not str(row.headword).strip():
                     print(f"[load_csv] dropping row with empty headword: {row}")
                     continue
                 try:
