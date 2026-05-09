@@ -81,7 +81,7 @@ def transform(raw_root: Path, clean_dir: Path, cap: int | None = None) -> Path:
 
 
 _GITHUB_RAW_URL = (
-    "https://raw.githubusercontent.com/nkowaokwu/igbo_api/main/"
+    "https://raw.githubusercontent.com/nkowaokwu/igbo_api/master/"
     "src/dictionaries/ig-en/ig-en.json"
 )
 
