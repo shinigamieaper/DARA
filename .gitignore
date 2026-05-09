@@ -10,3 +10,7 @@ __pycache__/
 
 # Seed pipeline
 raw/
+data/
+
+# Local tool config (Claude Code, IDEs, etc.)
+.claude/
