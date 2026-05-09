@@ -1,11 +1,19 @@
-"""NaijaSenti loader: hau / ibo / yor configs, pcm skipped."""
+"""NaijaSenti loader: hau / ibo / yor configs, pcm skipped.
+
+The HF dataset (HausaNLP/NaijaSenti-Twitter) ships only as a Python
+loader script that the modern `datasets` library refuses to execute.
+We bypass it and pull the underlying TSVs from the upstream GitHub
+repo (hausanlp/NaijaSenti) directly. The on-disk TSVs already use
+string sentiment labels, so no int2str resolution is needed.
+"""
 import csv as _csv
 import json
 import random
+from io import StringIO
 from pathlib import Path
 
 import pandas as pd
-from datasets import load_dataset as hf_load_dataset
+import requests
 
 import db
 from config import CAPS, RNG_SEED, SOURCE_TAGS
@@ -13,6 +21,12 @@ from config import CAPS, RNG_SEED, SOURCE_TAGS
 SOURCE_TAG = SOURCE_TAGS["naijasenti"]
 _LANG_TO_DIALECT = {"yor": 1, "ibo": 5, "hau": 8}
 _LANGS = ("yor", "ibo", "hau")
+_GITHUB_BASE = (
+    "https://raw.githubusercontent.com/hausanlp/NaijaSenti/main/"
+    "data/annotated_tweets/"
+)
+# Upstream "dev.tsv" is what we call "validation" elsewhere.
+_SPLIT_FILES = {"train": "train.tsv", "validation": "dev.tsv", "test": "test.tsv"}
 
 
 def transform_entry(raw: dict, lang: str) -> tuple[str, str, int, dict]:
@@ -31,21 +45,29 @@ def transform_entry(raw: dict, lang: str) -> tuple[str, str, int, dict]:
 
 
 def download(raw_root: Path) -> Path:
+    """Fetch the upstream NaijaSenti TSVs and write naijasenti.json.
+
+    Output shape: {"yor": [{tweet, sentiment, split}, ...], "ibo": [...], "hau": [...]}
+    The pcm config exists upstream but is intentionally not fetched.
+    """
     raw_dir = Path(raw_root) / "naijasenti"
     raw_dir.mkdir(parents=True, exist_ok=True)
     payload: dict[str, list[dict]] = {}
     for lang in _LANGS:
-        ds = hf_load_dataset("HausaNLP/NaijaSenti-Twitter", lang)
         rows: list[dict] = []
-        for split in ds.keys():
-            split_ds = ds[split]
-            label_feature = split_ds.features["label"]
-            for r in split_ds:
-                rows.append({
-                    "tweet": r["tweet"],
-                    "sentiment": label_feature.int2str(r["label"]),
-                    "split": split,
-                })
+        for split, filename in _SPLIT_FILES.items():
+            url = f"{_GITHUB_BASE}{lang}/{filename}"
+            resp = requests.get(url, timeout=60)
+            resp.raise_for_status()
+            df = pd.read_csv(StringIO(resp.text), sep="\t", dtype=str,
+                             encoding="utf-8", keep_default_na=False,
+                             quoting=_csv.QUOTE_NONE)
+            for _, r in df.iterrows():
+                tweet = (r.get("tweet") or "").strip()
+                label = (r.get("label") or "").strip()
+                if not tweet:
+                    continue
+                rows.append({"tweet": tweet, "sentiment": label, "split": split})
         payload[lang] = rows
         print(f"[naijasenti] {lang}: {len(rows)} raw rows pooled across splits")
     out = raw_dir / "naijasenti.json"

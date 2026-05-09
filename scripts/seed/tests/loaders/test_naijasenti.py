@@ -72,40 +72,53 @@ def test_transform_dedups_within_language(tmp_path):
     assert (df["dialect_id"] == "1").sum() == 2
 
 
-def test_download_skips_pcm_and_resolves_int_labels(tmp_path):
+def test_download_skips_pcm_and_pulls_three_langs_from_github(tmp_path):
+    """Download fetches TSVs from GitHub raw, never touching pcm.
+
+    Each TSV body has the 'tweet\\tlabel' header plus a couple of rows.
+    The implementation should fetch yor/ibo/hau across 3 splits each
+    (9 calls total) and never hit pcm."""
     raw_root = tmp_path / "raw" / "naijasenti"
 
-    class FakeFeatures:
-        def __init__(self, label_names):
-            self.label_names = label_names
-            self.label = MagicMock()
-            self.label.int2str = lambda i: label_names[i]
-        def __getitem__(self, k):
-            return self.label
+    body_for = lambda lang, split: (
+        "tweet\tlabel\n"
+        f"{lang}_{split}_t1\tpositive\n"
+        f"{lang}_{split}_t2\tnegative\n"
+    )
 
-    def fake_load_dataset(name, lang):
-        assert lang in ("yor", "ibo", "hau")  # not pcm
-        ds = MagicMock()
-        ds.keys.return_value = ["train"]
-        feats = FakeFeatures(["negative", "neutral", "positive"])
+    called_urls = []
 
-        def fake_split_iter():
-            return iter([{"tweet": f"{lang}_t1", "label": 2},
-                         {"tweet": f"{lang}_t2", "label": 0}])
+    def fake_get(url, *args, **kwargs):
+        called_urls.append(url)
+        # Parse the URL: .../annotated_tweets/<lang>/<file>
+        parts = url.rstrip("/").split("/")
+        filename = parts[-1]  # train.tsv | dev.tsv | test.tsv
+        lang = parts[-2]
+        split = {"train.tsv": "train", "dev.tsv": "dev", "test.tsv": "test"}[filename]
+        m = MagicMock()
+        m.raise_for_status.return_value = None
+        m.text = body_for(lang, split)
+        return m
 
-        ds.__getitem__.return_value.features = feats
-        ds.__getitem__.return_value.__iter__ = lambda _self: fake_split_iter()
-        return ds
-
-    with patch("loaders.naijasenti.hf_load_dataset", side_effect=fake_load_dataset) as load_ds:
+    with patch("loaders.naijasenti.requests.get", side_effect=fake_get):
         naijasenti.download(raw_root.parent)
 
-    called_langs = [call.kwargs.get("lang") or call.args[1] for call in load_ds.call_args_list]
-    assert "pcm" not in called_langs
-    assert set(called_langs) == {"yor", "ibo", "hau"}
+    # 3 langs × 3 splits = 9 fetches; pcm never appears.
+    assert len(called_urls) == 9
+    assert all("/pcm/" not in u for u in called_urls)
+    langs_called = {u.rstrip("/").split("/")[-2] for u in called_urls}
+    assert langs_called == {"yor", "ibo", "hau"}
+
     payload = json.loads((raw_root / "naijasenti.json").read_text(encoding="utf-8"))
     assert "pcm" not in payload
-    assert payload["yor"][0]["sentiment"] == "positive"
+    assert set(payload.keys()) == {"yor", "ibo", "hau"}
+    # Each lang has 3 splits × 2 rows = 6 entries
+    assert len(payload["yor"]) == 6
+    # split names are normalized (dev → validation)
+    splits_seen = {row["split"] for row in payload["yor"]}
+    assert splits_seen == {"train", "validation", "test"}
+    # Sentiment label is preserved as-is (no int2str needed; upstream is already strings)
+    assert payload["yor"][0]["sentiment"] in {"positive", "negative", "neutral"}
 
 
 def test_load_returns_load_result(tmp_path):
