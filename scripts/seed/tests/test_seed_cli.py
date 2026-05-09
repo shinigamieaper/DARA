@@ -54,3 +54,34 @@ def test_parser_all_rejects_both_flags():
     parser = seed.build_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(["all", "--truncate", "--abort-if-not-empty"])
+
+
+def test_load_dispatch_aborts_if_table_non_empty(monkeypatch, tmp_path):
+    monkeypatch.setattr("seed.db.connect", lambda: MagicMock())
+    monkeypatch.setattr("seed.db.entries_row_count", lambda conn: 5)
+    monkeypatch.setattr("seed.db.source_row_count", lambda conn, tag: 0)
+
+    rc = seed.main(["load", "igbo_api", "--abort-if-not-empty"])
+    assert rc == 1
+
+
+def test_load_dispatch_aborts_if_source_already_loaded(monkeypatch):
+    monkeypatch.setattr("seed.db.connect", lambda: MagicMock())
+    monkeypatch.setattr("seed.db.entries_row_count", lambda conn: 0)
+    monkeypatch.setattr("seed.db.source_row_count", lambda conn, tag: 100)
+
+    rc = seed.main(["load", "igbo_api"])
+    assert rc == 1
+
+
+def test_load_dispatch_force_overrides_source_check(monkeypatch, tmp_path):
+    csv_path = tmp_path / "igbo_api_clean.csv"
+    csv_path.write_text("headword,pos,dialect_id,jsonb_data\n", encoding="utf-8")
+    monkeypatch.setattr("seed.db.connect", lambda: MagicMock())
+    monkeypatch.setattr("seed.db.entries_row_count", lambda conn: 0)
+    monkeypatch.setattr("seed.db.source_row_count", lambda conn, tag: 100)
+    monkeypatch.setattr("seed.CLEAN_DIR", tmp_path)
+    monkeypatch.setattr("loaders.igbo_api.load", MagicMock(return_value=0))
+
+    rc = seed.main(["load", "igbo_api", "--force"])
+    assert rc == 0

@@ -1,8 +1,25 @@
 """seed.py — CLI driver for the seed pipeline."""
 import argparse
 import sys
+from pathlib import Path
+
+import db
+import preflight as preflight_module
+import verify as verify_module
+from loaders import igbo_api, yorulect, voa_ner, naijasenti
+from config import DATASET_ORDER, SOURCE_TAGS
 
 DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti")
+
+CLEAN_DIR = Path(__file__).resolve().parent.parent.parent / "clean"
+RAW_DIR = Path(__file__).resolve().parent.parent.parent / "raw"
+
+LOADERS = {
+    "igbo_api": igbo_api,
+    "yorulect": yorulect,
+    "voa_ner": voa_ner,
+    "naijasenti": naijasenti,
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,8 +52,79 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    # Dispatch added in Task 14.
-    raise NotImplementedError(f"command {args.command} not wired yet")
+
+    if args.command == "preflight":
+        return preflight_module.run()
+    if args.command == "verify":
+        return verify_module.run()
+    if args.command == "download":
+        LOADERS[args.dataset].download(RAW_DIR)
+        return 0
+    if args.command == "sample":
+        return _do_sample(args.dataset)
+    if args.command == "transform":
+        LOADERS[args.dataset].transform(RAW_DIR, CLEAN_DIR)
+        return 0
+    if args.command == "load":
+        return _do_load(args)
+    if args.command == "all":
+        return _do_all(args)
+    raise AssertionError(f"unhandled command: {args.command}")
+
+
+def _do_load(args) -> int:
+    csv_path = CLEAN_DIR / f"{args.dataset}_clean.csv"
+    if not csv_path.exists():
+        print(f"[load] missing {csv_path}; run `transform {args.dataset}` first",
+              file=sys.stderr)
+        return 1
+    conn = db.connect()
+    try:
+        if args.abort_if_not_empty and db.entries_row_count(conn) > 0:
+            print("[load] refusing: entries table is not empty "
+                  "(--abort-if-not-empty was set)", file=sys.stderr)
+            return 1
+        tag = SOURCE_TAGS[args.dataset]
+        if not args.force and db.source_row_count(conn, tag) > 0:
+            print(f"[load] refusing: source {tag!r} already has rows. "
+                  f"Pass --force to override.", file=sys.stderr)
+            return 1
+        inserted = LOADERS[args.dataset].load(csv_path, conn)
+        print(f"[load] {args.dataset}: inserted {inserted} rows")
+        return 0
+    finally:
+        conn.close()
+
+
+def _do_sample(dataset: str) -> int:
+    """Print one raw entry from raw/<dataset>/ and exit. Read-only."""
+    import json as _json
+    raw_root = RAW_DIR / dataset
+    if dataset == "naijasenti":
+        payload = _json.loads((raw_root / "naijasenti.json").read_text(encoding="utf-8"))
+        first_lang = next(iter(payload))
+        print(f"[sample] naijasenti {first_lang}[0]:")
+        print(_json.dumps(payload[first_lang][0], ensure_ascii=False, indent=2))
+    elif dataset == "voa_ner":
+        rows = _json.loads((raw_root / "voa_ner.json").read_text(encoding="utf-8"))
+        print(_json.dumps(rows[0], ensure_ascii=False, indent=2))
+    elif dataset == "igbo_api":
+        rows = _json.loads((raw_root / "igbo_api.json").read_text(encoding="utf-8"))
+        print(_json.dumps(rows[0], ensure_ascii=False, indent=2))
+    elif dataset == "yorulect":
+        std = RAW_DIR / "yorulect" / "standard"
+        first_tsv = sorted(std.glob("*.tsv"))[0]
+        print(f"[sample] yorulect standard/{first_tsv.name} (head -3):")
+        with open(first_tsv, "r", encoding="utf-8") as f:
+            for i, line in enumerate(f):
+                if i == 3:
+                    break
+                print(line.rstrip())
+    return 0
+
+
+def _do_all(args) -> int:
+    raise NotImplementedError("_do_all wired in Task 15")
 
 
 if __name__ == "__main__":
