@@ -79,7 +79,7 @@ def transform(raw_root: Path, clean_dir: Path, per_dialect_cap: int | None = Non
         per_dialect: list[dict] = []
         for tsv_path in sorted(folder.glob("*.tsv")):
             df = pd.read_csv(tsv_path, sep="\t", dtype=str, encoding="utf-8",
-                             keep_default_na=False)
+                             keep_default_na=False, quoting=_csv.QUOTE_NONE)
             cols = {c.lower(): c for c in df.columns}
             if "yoruba" not in cols or "english" not in cols:
                 print(f"[yorulect] FAIL: {tsv_path} columns={list(df.columns)}; "
