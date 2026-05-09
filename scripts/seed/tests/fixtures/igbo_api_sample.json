@@ -1,0 +1,13 @@
+[
+  {"word": "akwa", "wordClass": "noun", "definitions": ["cloth", "egg"],
+   "examples": ["Akwa di mma."], "dialects": []},
+  {"word": "akwa", "wordClass": "noun", "definitions": ["a different sense"],
+   "examples": [], "dialects": ["Ehugbo"]},
+  {"word": "ulo", "wordClass": "noun", "definitions": ["house"],
+   "examples": [], "dialects": ["Ehugbo"]},
+  {"word": "mmiri", "wordClass": "noun", "definitions": ["water"],
+   "examples": [], "dialects": ["Enuani"]},
+  {"word": "anya", "definitions": ["eye"], "examples": [], "dialects": []},
+  {"word": "isi", "wordClass": "noun", "definitions": ["head"],
+   "examples": [], "dialects": []}
+]
