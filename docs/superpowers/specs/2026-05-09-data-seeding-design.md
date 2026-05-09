@@ -176,6 +176,14 @@ Every dataset module exposes the same three functions:
   dialect has fewer than 250 unique sentences, take all of them, log a
   warning, and record the underflow in the summary (see §9). No
   backfill from another dialect.
+- **Cross-file dedup behavior:** when the same sentence appears in two
+  domain `.tsv` files within the same dialect folder, only the first
+  occurrence survives, and the `domain` field in JSONB reflects
+  whichever file was iterated first. This is intentional, not a bug —
+  the alternative (keeping both with different domains) would inflate
+  the dialect's count with effectively-duplicate `headword`s. The
+  iteration order is `sorted(folder.glob("*.tsv"))` so the surviving
+  domain is deterministic.
 
 ### 6.3 VOA NER
 
@@ -237,9 +245,14 @@ without relying on `RETURNING` ordering across multi-row inserts.
 **CSV format.** `clean/<dataset>_clean.csv` has exactly four columns:
 `headword`, `pos`, `dialect_id`, `jsonb_data`. The `jsonb_data` column
 is a JSON-encoded string. CSVs are written with
-`pd.to_csv(..., encoding='utf-8', index=False)` and read back with
-`pd.read_csv(..., dtype=str, encoding='utf-8')`. This makes the load
-step a pure CSV → DB operation, decoupled from the upstream sources.
+`pd.to_csv(..., encoding='utf-8', index=False, quoting=csv.QUOTE_ALL)`
+and read back with `pd.read_csv(..., dtype=str, encoding='utf-8')`.
+`QUOTE_ALL` is required because `jsonb_data` carries commas, double
+quotes, and (occasionally) newlines that would otherwise have to rely
+on pandas's per-field heuristics to escape correctly. Quoting every
+field is uniform and removes the failure mode entirely. This makes the
+load step a pure CSV → DB operation, decoupled from the upstream
+sources.
 
 **Encoding posture.** All `pd.read_csv`, `pd.to_csv`, and raw `.tsv`
 `open()` calls pass `encoding='utf-8'` explicitly. Preflight runs
@@ -338,13 +351,35 @@ python scripts/seed/seed.py preflight
 ```
 
 **One-at-a-time first run** (the pattern used while validating each
-dataset for the capstone):
+dataset for the capstone). `--abort-if-not-empty` checks the *whole*
+`entries` table, so it only fits on the first dataset. Subsequent loads
+rely on the always-on source-tag gate (refuses if this dataset's
+`SOURCE_TAG` already has rows in `metadata`) to prevent double-loading:
+
 ```
+# Dataset 1: validates the table starts empty.
 python scripts/seed/seed.py download igbo_api
 python scripts/seed/seed.py sample   igbo_api          # eyeball one raw entry
 python scripts/seed/seed.py transform igbo_api
 python scripts/seed/seed.py load     igbo_api --abort-if-not-empty
-# repeat for yorulect, voa_ner, naijasenti
+
+# Datasets 2-4: source-tag gate is always on; --abort-if-not-empty
+# would now refuse because igbo_api just inserted rows.
+python scripts/seed/seed.py download yorulect
+python scripts/seed/seed.py sample   yorulect
+python scripts/seed/seed.py transform yorulect
+python scripts/seed/seed.py load     yorulect
+
+python scripts/seed/seed.py download voa_ner
+python scripts/seed/seed.py sample   voa_ner
+python scripts/seed/seed.py transform voa_ner
+python scripts/seed/seed.py load     voa_ner
+
+python scripts/seed/seed.py download naijasenti
+python scripts/seed/seed.py sample   naijasenti
+python scripts/seed/seed.py transform naijasenti
+python scripts/seed/seed.py load     naijasenti
+
 python scripts/seed/seed.py verify
 ```
 
