@@ -54,3 +54,79 @@ def download(raw_root: Path) -> Path:
 
     gdown.download_folder(url, output=str(out_dir), quiet=False)
     return out_dir
+
+
+def transform(raw_root: Path, clean_dir: Path, per_dialect_cap: int | None = None) -> Path:
+    """Walk raw_root/yorulect/<dialect>/*.tsv, sample per dialect, write CSV."""
+    raw_root = Path(raw_root)
+    clean_dir = Path(clean_dir)
+    clean_dir.mkdir(parents=True, exist_ok=True)
+    if per_dialect_cap is None:
+        per_dialect_cap = CAPS["yorulect"]["per_dialect"]
+
+    yl_root = raw_root / "yorulect"
+    rng = random.Random(RNG_SEED)
+    rows: list[dict] = []
+    underflow: dict[str, tuple[int, int]] = {}
+
+    for folder_name, dialect_id in _DIALECT_FOLDERS.items():
+        folder = yl_root / folder_name
+        if not folder.is_dir():
+            print(f"[yorulect] FAIL: missing dialect folder {folder}")
+            raise SystemExit(2)
+
+        seen: set[str] = set()
+        per_dialect: list[dict] = []
+        for tsv_path in sorted(folder.glob("*.tsv")):
+            df = pd.read_csv(tsv_path, sep="\t", dtype=str, encoding="utf-8",
+                             keep_default_na=False)
+            cols = {c.lower(): c for c in df.columns}
+            if "yoruba" not in cols or "english" not in cols:
+                print(f"[yorulect] FAIL: {tsv_path} columns={list(df.columns)}; "
+                      f"need 'english' and 'yoruba'")
+                raise SystemExit(2)
+
+            domain = tsv_path.stem
+            for _, r in df.iterrows():
+                yo = (r[cols["yoruba"]] or "").strip()
+                en = (r[cols["english"]] or "").strip()
+                if not yo or yo in seen:
+                    continue
+                seen.add(yo)
+                per_dialect.append({
+                    "headword": yo,
+                    "pos": "sentence",
+                    "dialect_id": dialect_id,
+                    "jsonb": {
+                        "source": SOURCE_TAG,
+                        "domain": domain,
+                        "english_translation": en,
+                    },
+                })
+
+        if len(per_dialect) <= per_dialect_cap:
+            sampled = per_dialect
+            if len(per_dialect) < per_dialect_cap:
+                underflow[folder_name] = (len(per_dialect), per_dialect_cap)
+                print(f"[yorulect] WARN: {folder_name} underflow: "
+                      f"{len(per_dialect)} available, cap was {per_dialect_cap}")
+        else:
+            sampled = rng.sample(per_dialect, per_dialect_cap)
+        rows.extend(sampled)
+
+    df_out = pd.DataFrame([{
+        "headword": r["headword"],
+        "pos": r["pos"],
+        "dialect_id": r["dialect_id"],
+        "jsonb_data": json.dumps(r["jsonb"], ensure_ascii=False),
+    } for r in rows])
+    out = clean_dir / "yorulect_clean.csv"
+    df_out.to_csv(out, index=False, encoding="utf-8", quoting=_csv.QUOTE_ALL)
+    print(f"[yorulect] wrote {len(df_out)} rows to {out}")
+    if underflow:
+        print(f"[yorulect] underflow detail: {underflow}")
+    return out
+
+
+def load(csv_path: Path, conn) -> int:
+    return db.load_csv(csv_path, conn)

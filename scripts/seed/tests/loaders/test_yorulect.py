@@ -1,5 +1,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+import json
+import shutil
+import pandas as pd
 import pytest
 from loaders import yorulect
 
@@ -43,3 +46,85 @@ def test_download_falls_back_to_drive_link_txt(tmp_path):
         yorulect.download(raw_dir)
     gd.assert_called_once()
     assert "MANUAL" in gd.call_args[0][0]
+
+
+FIXTURES = Path(__file__).parent.parent / "fixtures" / "yorulect"
+
+
+def _copy_fixtures(dest: Path):
+    shutil.copytree(FIXTURES, dest)
+
+
+def test_transform_picks_yoruba_column_and_assigns_dialect_from_folder(tmp_path):
+    raw = tmp_path / "raw" / "yorulect"
+    _copy_fixtures(raw)
+    csv_path = yorulect.transform(raw.parent, tmp_path / "clean", per_dialect_cap=10)
+    df = pd.read_csv(csv_path, dtype=str)
+    assert (df["pos"] == "sentence").all()
+    standard = df[df["dialect_id"] == "1"]
+    ife = df[df["dialect_id"] == "2"]
+    assert "Àgbẹ̀ ń gbin iṣu." in standard["headword"].values
+    assert "Àgbẹ̀ ǹ gbin iṣu." in ife["headword"].values  # different diacritic
+
+
+def test_transform_jsonb_carries_domain_and_english(tmp_path):
+    raw = tmp_path / "raw" / "yorulect"
+    _copy_fixtures(raw)
+    csv_path = yorulect.transform(raw.parent, tmp_path / "clean", per_dialect_cap=10)
+    df = pd.read_csv(csv_path, dtype=str)
+    row = df[df["headword"] == "Àgbẹ̀ ń gbin iṣu."].iloc[0]
+    jsonb = json.loads(row["jsonb_data"])
+    assert jsonb["source"] == "YorùLect"
+    assert jsonb["domain"] == "farming"
+    assert jsonb["english_translation"] == "The farmer plants yam."
+
+
+def test_transform_cross_file_dedup_keeps_first_alphabetical(tmp_path):
+    raw = tmp_path / "raw" / "yorulect"
+    _copy_fixtures(raw)
+    csv_path = yorulect.transform(raw.parent, tmp_path / "clean", per_dialect_cap=10)
+    df = pd.read_csv(csv_path, dtype=str)
+    # "Ó ní oko." appears in both standard/farming.tsv and standard/cooking.tsv.
+    # cooking.tsv sorts before farming.tsv alphabetically, so cooking wins.
+    duplicates = df[df["headword"] == "Ó ní oko."]
+    assert len(duplicates) == 1
+    jsonb = json.loads(duplicates.iloc[0]["jsonb_data"])
+    assert jsonb["domain"] == "cooking"
+
+
+def test_transform_underflow_caps_at_available(tmp_path):
+    raw = tmp_path / "raw" / "yorulect"
+    _copy_fixtures(raw)
+    # ife only has 2 unique sentences in the fixture; cap of 250 means we get 2.
+    csv_path = yorulect.transform(raw.parent, tmp_path / "clean", per_dialect_cap=250)
+    df = pd.read_csv(csv_path, dtype=str)
+    assert (df["dialect_id"] == "2").sum() == 2
+
+
+def test_transform_aborts_on_missing_dialect_folder(tmp_path):
+    raw = tmp_path / "raw" / "yorulect"
+    raw.mkdir(parents=True)
+    # only standard/, no others
+    (raw / "standard").mkdir()
+    (raw / "standard" / "x.tsv").write_text("english\tyoruba\nhi\tbonjour\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        yorulect.transform(raw.parent, tmp_path / "clean", per_dialect_cap=10)
+
+
+def test_transform_aborts_on_missing_columns(tmp_path):
+    raw = tmp_path / "raw" / "yorulect"
+    for sub in ("standard", "ife", "ilaje", "ijebu"):
+        (raw / sub).mkdir(parents=True)
+        (raw / sub / "bad.tsv").write_text("col1\tcol2\nx\ty\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        yorulect.transform(raw.parent, tmp_path / "clean", per_dialect_cap=10)
+
+
+def test_load_delegates_to_db_load_csv(tmp_path):
+    csv_path = tmp_path / "yorulect_clean.csv"
+    csv_path.write_text("headword,pos,dialect_id,jsonb_data\n", encoding="utf-8")
+    fake_conn = MagicMock()
+    with patch("loaders.yorulect.db.load_csv", return_value=11) as load_csv:
+        result = yorulect.load(csv_path, fake_conn)
+    load_csv.assert_called_once_with(csv_path, fake_conn)
+    assert result == 11
