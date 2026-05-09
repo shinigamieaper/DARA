@@ -100,7 +100,13 @@ def download(raw_root: Path) -> Path:
         print(f"[igbo_api] HF download failed ({e}); falling back to GitHub raw")
         resp = requests.get(_GITHUB_RAW_URL, timeout=60)
         resp.raise_for_status()
-        records = resp.json()
+        raw = resp.json()
+        # GitHub dump is shaped {headword: [entry_dict, ...]}. Flatten to a flat
+        # list so downstream code (transform, sample) can iterate uniformly.
+        if isinstance(raw, dict):
+            records = [e for entries in raw.values() for e in entries]
+        else:
+            records = raw
 
     out.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
     print(f"[igbo_api] wrote {len(records)} raw entries to {out}")

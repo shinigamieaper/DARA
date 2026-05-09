@@ -125,6 +125,26 @@ def test_download_falls_back_to_github_on_hf_failure(tmp_path):
     assert (raw_dir / "igbo_api" / "igbo_api.json").exists()
 
 
+def test_download_flattens_dict_of_lists_from_github(tmp_path):
+    """The real GitHub dump is {headword: [entry_dict, ...]}. Download must
+    flatten that to a flat list so transform() and sample() can iterate it
+    uniformly."""
+    raw_dir = tmp_path / "raw"
+    fake_response = MagicMock()
+    fake_response.json.return_value = {
+        "akwa": [{"word": "akwa", "wordClass": "noun", "definitions": ["cloth"]}],
+        "ulo":  [{"word": "ulo",  "wordClass": "noun", "definitions": ["house"]}],
+    }
+    fake_response.raise_for_status.return_value = None
+    with patch("loaders.igbo_api.hf_load_dataset", side_effect=RuntimeError("HF down")), \
+         patch("loaders.igbo_api.requests.get", return_value=fake_response):
+        igbo_api.download(raw_dir)
+    written = json.loads((raw_dir / "igbo_api" / "igbo_api.json").read_text(encoding="utf-8"))
+    assert isinstance(written, list)
+    assert len(written) == 2
+    assert {e["word"] for e in written} == {"akwa", "ulo"}
+
+
 def test_load_returns_load_result(tmp_path):
     csv_path = tmp_path / "igbo_api_clean.csv"
     csv_path.write_text("headword,pos,dialect_id,jsonb_data\n", encoding="utf-8")
