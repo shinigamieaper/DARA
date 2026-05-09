@@ -108,11 +108,13 @@ def test_download_skips_pcm_and_resolves_int_labels(tmp_path):
     assert payload["yor"][0]["sentiment"] == "positive"
 
 
-def test_load_delegates_to_db_load_csv(tmp_path):
+def test_load_returns_load_result(tmp_path):
     csv_path = tmp_path / "naijasenti_clean.csv"
     csv_path.write_text("headword,pos,dialect_id,jsonb_data\n", encoding="utf-8")
     fake_conn = MagicMock()
-    with patch("loaders.naijasenti.db.load_csv", return_value=9) as load_csv:
+    with patch("loaders.naijasenti.db.load_csv", return_value=(1500, 1495, ["empty headword"] * 5)):
         result = naijasenti.load(csv_path, fake_conn)
-    load_csv.assert_called_once_with(csv_path, fake_conn)
-    assert result == 9
+    assert result.dataset == "naijasenti"
+    assert result.sampled == 1500
+    assert result.inserted == 1495
+    assert len(result.dropped_reasons) == 5

@@ -55,9 +55,11 @@ def test_load_csv_executes_paired_insert(tmp_path):
     fake_conn.__enter__.return_value = fake_conn
     cur = fake_conn.cursor.return_value.__enter__.return_value
 
-    inserted = db.load_csv(csv_path, fake_conn)
+    sampled, inserted, dropped = db.load_csv(csv_path, fake_conn)
 
+    assert sampled == 2
     assert inserted == 2
+    assert dropped == []
     assert cur.execute.call_count == 2
     first_call = cur.execute.call_args_list[0]
     sql = first_call[0][0]
@@ -81,9 +83,11 @@ def test_load_csv_drops_null_headword_rows(tmp_path):
     fake_conn.__enter__.return_value = fake_conn
     cur = fake_conn.cursor.return_value.__enter__.return_value
 
-    inserted = db.load_csv(csv_path, fake_conn)
+    sampled, inserted, dropped = db.load_csv(csv_path, fake_conn)
 
+    assert sampled == 2
     assert inserted == 1
+    assert dropped == ["empty headword"]
     assert cur.execute.call_count == 1
 
 
@@ -99,9 +103,11 @@ def test_load_csv_keeps_row_whose_headword_is_literally_nan(tmp_path):
     fake_conn.__enter__.return_value = fake_conn
     cur = fake_conn.cursor.return_value.__enter__.return_value
 
-    inserted = db.load_csv(csv_path, fake_conn)
+    sampled, inserted, dropped = db.load_csv(csv_path, fake_conn)
 
+    assert sampled == 1
     assert inserted == 1
+    assert dropped == []
     assert cur.execute.call_count == 1
     params = cur.execute.call_args_list[0][0][1]
     assert params[0] == "nan"
@@ -120,3 +126,24 @@ def test_truncate_all_runs_truncate_with_cascade():
     assert "metadata" in sql
     assert "RESTART IDENTITY" in sql
     assert "CASCADE" in sql
+
+
+def test_load_result_format_line_no_drops_no_underflow():
+    r = db.LoadResult(dataset="igbo_api", sampled=1000, inserted=1000)
+    line = r.format_line()
+    assert "sampled  1000" in line
+    assert "0 dropped" in line
+    assert "0 underflow" in line
+
+
+def test_load_result_format_line_with_drops_and_underflow():
+    r = db.LoadResult(
+        dataset="yorulect",
+        sampled=953,
+        inserted=950,
+        dropped_reasons=["empty headword", "empty headword", "empty headword"],
+        underflow={"ife": (203, 250)},
+    )
+    line = r.format_line()
+    assert "3 dropped: empty headword" in line
+    assert "47 underflow on ife" in line

@@ -107,6 +107,12 @@ def download(raw_root: Path) -> Path:
     return out
 
 
-def load(csv_path: Path, conn) -> int:
-    """Insert the cleaned CSV via db.load_csv."""
-    return db.load_csv(csv_path, conn)
+def load(csv_path: Path, conn) -> "db.LoadResult":
+    """Insert the cleaned CSV via db.load_csv, return a LoadResult."""
+    sampled, inserted, reasons = db.load_csv(csv_path, conn)
+    return db.LoadResult(
+        dataset="igbo_api",
+        sampled=sampled,
+        inserted=inserted,
+        dropped_reasons=reasons,
+    )

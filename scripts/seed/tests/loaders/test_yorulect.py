@@ -120,11 +120,35 @@ def test_transform_aborts_on_missing_columns(tmp_path):
         yorulect.transform(raw.parent, tmp_path / "clean", per_dialect_cap=10)
 
 
-def test_load_delegates_to_db_load_csv(tmp_path):
+def test_load_returns_load_result_no_sidecar(tmp_path):
     csv_path = tmp_path / "yorulect_clean.csv"
     csv_path.write_text("headword,pos,dialect_id,jsonb_data\n", encoding="utf-8")
     fake_conn = MagicMock()
-    with patch("loaders.yorulect.db.load_csv", return_value=11) as load_csv:
+    with patch("loaders.yorulect.db.load_csv", return_value=(950, 950, [])):
         result = yorulect.load(csv_path, fake_conn)
-    load_csv.assert_called_once_with(csv_path, fake_conn)
-    assert result == 11
+    assert result.dataset == "yorulect"
+    assert result.sampled == 950
+    assert result.inserted == 950
+    assert result.underflow == {}
+
+
+def test_load_reads_underflow_sidecar(tmp_path):
+    csv_path = tmp_path / "yorulect_clean.csv"
+    csv_path.write_text("headword,pos,dialect_id,jsonb_data\n", encoding="utf-8")
+    sidecar = tmp_path / "yorulect_underflow.json"
+    sidecar.write_text('{"ife": [203, 250]}', encoding="utf-8")
+    fake_conn = MagicMock()
+    with patch("loaders.yorulect.db.load_csv", return_value=(950, 950, [])):
+        result = yorulect.load(csv_path, fake_conn)
+    assert result.underflow == {"ife": (203, 250)}
+
+
+def test_transform_writes_underflow_sidecar(tmp_path):
+    raw = tmp_path / "raw" / "yorulect"
+    _copy_fixtures(raw)
+    yorulect.transform(raw.parent, tmp_path / "clean", per_dialect_cap=250)
+    sidecar = tmp_path / "clean" / "yorulect_underflow.json"
+    assert sidecar.exists()
+    data = json.loads(sidecar.read_text(encoding="utf-8"))
+    # ife fixture has 2 unique sentences; with cap=250 it underflows.
+    assert data["ife"] == [2, 250]

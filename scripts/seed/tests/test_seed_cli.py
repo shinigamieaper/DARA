@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 import pytest
+import db
 import seed
 
 
@@ -112,7 +113,10 @@ def test_all_truncate_path_calls_truncate_then_loads_all_in_order(monkeypatch, t
         )
         monkeypatch.setattr(
             f"loaders.{ds}.load",
-            lambda csv, conn, _ds=ds: (call_order.append(("load", _ds)), 100)[1]
+            lambda csv, conn, _ds=ds: (
+                call_order.append(("load", _ds)),
+                db.LoadResult(dataset=_ds, sampled=100, inserted=100),
+            )[1],
         )
 
     rc = seed.main(["all", "--truncate"])
@@ -153,3 +157,49 @@ def test_all_stops_on_first_failure(monkeypatch, tmp_path):
     assert rc == 1
     assert "d_ia" in called
     assert "d_yl" not in called
+
+
+def test_all_summary_includes_underflow_detail(monkeypatch, tmp_path, capsys):
+    for ds in ("igbo_api", "yorulect", "voa_ner", "naijasenti"):
+        (tmp_path / f"{ds}_clean.csv").write_text(
+            "headword,pos,dialect_id,jsonb_data\n", encoding="utf-8"
+        )
+    monkeypatch.setattr("seed.CLEAN_DIR", tmp_path)
+    monkeypatch.setattr("seed.RAW_DIR", tmp_path)
+    monkeypatch.setattr("seed.db.connect", lambda: MagicMock())
+    monkeypatch.setattr("seed.db.entries_row_count", lambda conn: 0)
+    monkeypatch.setattr("seed.db.source_row_count", lambda conn, tag: 0)
+    monkeypatch.setattr("seed.db.truncate_all", MagicMock())
+
+    def make_result(ds, underflow=None):
+        return db.LoadResult(
+            dataset=ds, sampled=100, inserted=100,
+            underflow=underflow or {},
+        )
+
+    for ds in ("igbo_api", "voa_ner", "naijasenti"):
+        monkeypatch.setattr(f"loaders.{ds}.download", lambda raw, _ds=ds: None)
+        monkeypatch.setattr(
+            f"loaders.{ds}.transform",
+            lambda raw, clean, _ds=ds: tmp_path / f"{_ds}_clean.csv",
+        )
+        monkeypatch.setattr(
+            f"loaders.{ds}.load",
+            lambda csv, conn, _ds=ds: make_result(_ds),
+        )
+    monkeypatch.setattr("loaders.yorulect.download", lambda raw: None)
+    monkeypatch.setattr(
+        "loaders.yorulect.transform",
+        lambda raw, clean: tmp_path / "yorulect_clean.csv",
+    )
+    monkeypatch.setattr(
+        "loaders.yorulect.load",
+        lambda csv, conn: make_result("yorulect", {"ife": (203, 250)}),
+    )
+
+    rc = seed.main(["all", "--truncate"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Underflow detail:" in out
+    assert "yorulect / ife" in out
+    assert "47 short" in out

@@ -61,11 +61,13 @@ def test_download_pulls_all_three_splits(tmp_path):
     assert splits == {"train", "validation", "test"}
 
 
-def test_load_delegates_to_db_load_csv(tmp_path):
+def test_load_returns_load_result(tmp_path):
     csv_path = tmp_path / "voa_ner_clean.csv"
     csv_path.write_text("headword,pos,dialect_id,jsonb_data\n", encoding="utf-8")
     fake_conn = MagicMock()
-    with patch("loaders.voa_ner.db.load_csv", return_value=5) as load_csv:
+    with patch("loaders.voa_ner.db.load_csv", return_value=(750, 750, [])):
         result = voa_ner.load(csv_path, fake_conn)
-    load_csv.assert_called_once_with(csv_path, fake_conn)
-    assert result == 5
+    assert result.dataset == "voa_ner"
+    assert result.sampled == 750
+    assert result.inserted == 750
+    assert result.dropped_reasons == []

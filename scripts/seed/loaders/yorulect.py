@@ -125,8 +125,24 @@ def transform(raw_root: Path, clean_dir: Path, per_dialect_cap: int | None = Non
     print(f"[yorulect] wrote {len(df_out)} rows to {out}")
     if underflow:
         print(f"[yorulect] underflow detail: {underflow}")
+    sidecar = clean_dir / "yorulect_underflow.json"
+    sidecar.write_text(json.dumps(underflow, ensure_ascii=False), encoding="utf-8")
     return out
 
 
-def load(csv_path: Path, conn) -> int:
-    return db.load_csv(csv_path, conn)
+def load(csv_path: Path, conn) -> "db.LoadResult":
+    sampled, inserted, reasons = db.load_csv(csv_path, conn)
+    sidecar = Path(csv_path).parent / "yorulect_underflow.json"
+    if sidecar.exists():
+        underflow_raw = json.loads(sidecar.read_text(encoding="utf-8"))
+        # JSON loses tuples; restore (avail, target) shape:
+        underflow = {k: tuple(v) for k, v in underflow_raw.items()}
+    else:
+        underflow = {}
+    return db.LoadResult(
+        dataset="yorulect",
+        sampled=sampled,
+        inserted=inserted,
+        dropped_reasons=reasons,
+        underflow=underflow,
+    )

@@ -1,5 +1,7 @@
 """Database access layer for the seed pipeline."""
 import os
+from collections import Counter
+from dataclasses import dataclass, field
 import psycopg2
 import pandas as pd
 from dotenv import load_dotenv
@@ -38,6 +40,44 @@ def source_row_count(conn, source_tag: str) -> int:
     return count
 
 
+@dataclass
+class LoadResult:
+    """Per-dataset outcome surfaced by each loader's load() function.
+
+    Fields:
+        dataset: short name (e.g. "igbo_api")
+        sampled: rows in the clean CSV before inserts
+        inserted: rows actually written to entries+metadata
+        dropped_reasons: list of reason strings (one per dropped row, may repeat)
+        underflow: {dialect_name: (available, target)} for sources that
+                   couldn't hit per-dialect quotas
+    """
+    dataset: str
+    sampled: int
+    inserted: int
+    dropped_reasons: list[str] = field(default_factory=list)
+    underflow: dict[str, tuple[int, int]] = field(default_factory=dict)
+
+    def format_line(self) -> str:
+        dropped_n = self.sampled - self.inserted
+        if dropped_n == 0:
+            dropped_part = "0 dropped"
+        else:
+            distinct_reasons = ", ".join(Counter(self.dropped_reasons).keys())
+            dropped_part = f"{dropped_n} dropped: {distinct_reasons}"
+
+        if not self.underflow:
+            uf_part = "0 underflow"
+        else:
+            shortfalls = []
+            for name, (avail, target) in self.underflow.items():
+                shortfalls.append(f"{target - avail} underflow on {name}")
+            uf_part = ", ".join(shortfalls)
+
+        return (f"  {self.dataset:<12} sampled {self.sampled:>5}, "
+                f"inserted {self.inserted:>5}  ({dropped_part}, {uf_part})")
+
+
 _PAIRED_INSERT_SQL = """
 WITH new_entry AS (
   INSERT INTO entries (headword, pos, dialect_id)
@@ -49,37 +89,28 @@ SELECT entry_id, %s::jsonb FROM new_entry
 """
 
 
-def load_csv(csv_path, conn) -> int:
+def load_csv(csv_path, conn) -> tuple[int, int, list[str]]:
     """Insert every row of csv_path into entries+metadata in a single transaction.
 
-    Uses a CTE so each metadata row pairs with the entry_id returned by its
-    own INSERT. Drops rows with NULL/empty headword with a warning. The
-    `with conn:` context commits on clean exit and rolls back on exception.
-    Returns the number of rows actually inserted.
+    Returns (sampled, inserted, dropped_reasons). `with conn:` commits on
+    clean exit and rolls back on exception.
     """
     df = pd.read_csv(csv_path, dtype=str, encoding="utf-8", keep_default_na=False)
+    sampled = len(df)
     inserted = 0
+    dropped: list[str] = []
     with conn:
         with conn.cursor() as cur:
             for row in df.itertuples(index=False):
                 if not row.headword or not str(row.headword).strip():
-                    print(f"[load_csv] dropping row with empty headword: {row}")
+                    dropped.append("empty headword")
                     continue
-                try:
-                    cur.execute(
-                        _PAIRED_INSERT_SQL,
-                        (
-                            row.headword,
-                            row.pos,
-                            int(row.dialect_id),
-                            row.jsonb_data,
-                        ),
-                    )
-                    inserted += 1
-                except Exception as e:
-                    print(f"[load_csv] insert failed at row {row}: {e}")
-                    raise
-    return inserted
+                cur.execute(
+                    _PAIRED_INSERT_SQL,
+                    (row.headword, row.pos, int(row.dialect_id), row.jsonb_data),
+                )
+                inserted += 1
+    return sampled, inserted, dropped
 
 
 def truncate_all(conn) -> None:

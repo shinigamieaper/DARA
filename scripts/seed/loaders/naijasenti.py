@@ -89,5 +89,11 @@ def transform(raw_root: Path, clean_dir: Path,
     return out
 
 
-def load(csv_path: Path, conn) -> int:
-    return db.load_csv(csv_path, conn)
+def load(csv_path: Path, conn) -> "db.LoadResult":
+    sampled, inserted, reasons = db.load_csv(csv_path, conn)
+    return db.LoadResult(
+        dataset="naijasenti",
+        sampled=sampled,
+        inserted=inserted,
+        dropped_reasons=reasons,
+    )

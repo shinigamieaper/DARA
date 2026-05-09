@@ -125,11 +125,14 @@ def test_download_falls_back_to_github_on_hf_failure(tmp_path):
     assert (raw_dir / "igbo_api" / "igbo_api.json").exists()
 
 
-def test_load_delegates_to_db_load_csv(tmp_path):
+def test_load_returns_load_result(tmp_path):
     csv_path = tmp_path / "igbo_api_clean.csv"
     csv_path.write_text("headword,pos,dialect_id,jsonb_data\n", encoding="utf-8")
     fake_conn = MagicMock()
-    with patch("loaders.igbo_api.db.load_csv", return_value=42) as load_csv:
+    with patch("loaders.igbo_api.db.load_csv", return_value=(10, 9, ["empty headword"])):
         result = igbo_api.load(csv_path, fake_conn)
-    load_csv.assert_called_once_with(csv_path, fake_conn)
-    assert result == 42
+    assert result.dataset == "igbo_api"
+    assert result.sampled == 10
+    assert result.inserted == 9
+    assert result.dropped_reasons == ["empty headword"]
+    assert result.underflow == {}

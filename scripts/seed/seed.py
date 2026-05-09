@@ -133,21 +133,38 @@ def _do_all(args) -> int:
             print("[all] truncating entries and metadata")
             db.truncate_all(conn)
 
-        summary: list[dict] = []
+        summary: list[db.LoadResult] = []
         for ds in DATASET_ORDER:
             print(f"\n=== {ds} ===")
             try:
                 LOADERS[ds].download(RAW_DIR)
                 csv_path = LOADERS[ds].transform(RAW_DIR, CLEAN_DIR)
-                inserted = LOADERS[ds].load(csv_path, conn)
-                summary.append({"dataset": ds, "inserted": inserted})
+                result = LOADERS[ds].load(csv_path, conn)
+                summary.append(result)
             except Exception as e:
                 print(f"[all] {ds} failed: {e}", file=sys.stderr)
                 return 1
 
         print("\n=== Summary ===")
-        for row in summary:
-            print(f"  {row['dataset']:<12} inserted {row['inserted']}")
+        print(f"Datasets loaded:  {', '.join(r.dataset for r in summary)}")
+        print(f"Total entries:    {sum(r.inserted for r in summary)}")
+        print()
+        print("Per-dataset:")
+        for r in summary:
+            print(r.format_line())
+
+        # Underflow detail subsection (per spec §9)
+        underflow_rows: list[tuple[str, str, int, int]] = []
+        for r in summary:
+            for name, (avail, target) in r.underflow.items():
+                underflow_rows.append((r.dataset, name, avail, target))
+        if underflow_rows:
+            print()
+            print("Underflow detail:")
+            for ds, name, avail, target in underflow_rows:
+                short = target - avail
+                print(f"  {ds} / {name}:   target {target}, available {avail} ({short} short)")
+
         return 0
     finally:
         conn.close()
