@@ -85,3 +85,71 @@ def test_load_dispatch_force_overrides_source_check(monkeypatch, tmp_path):
 
     rc = seed.main(["load", "igbo_api", "--force"])
     assert rc == 0
+
+
+def test_all_truncate_path_calls_truncate_then_loads_all_in_order(monkeypatch, tmp_path):
+    for ds in ("igbo_api", "yorulect", "voa_ner", "naijasenti"):
+        (tmp_path / f"{ds}_clean.csv").write_text(
+            "headword,pos,dialect_id,jsonb_data\n", encoding="utf-8"
+        )
+    monkeypatch.setattr("seed.CLEAN_DIR", tmp_path)
+    monkeypatch.setattr("seed.RAW_DIR", tmp_path)
+    monkeypatch.setattr("seed.db.connect", lambda: MagicMock())
+    monkeypatch.setattr("seed.db.entries_row_count", lambda conn: 0)
+    monkeypatch.setattr("seed.db.source_row_count", lambda conn, tag: 0)
+    truncate = MagicMock()
+    monkeypatch.setattr("seed.db.truncate_all", truncate)
+
+    call_order = []
+    for ds in ("igbo_api", "yorulect", "voa_ner", "naijasenti"):
+        monkeypatch.setattr(
+            f"loaders.{ds}.download",
+            lambda raw, _ds=ds: call_order.append(("download", _ds))
+        )
+        monkeypatch.setattr(
+            f"loaders.{ds}.transform",
+            lambda raw, clean, _ds=ds: (call_order.append(("transform", _ds)), tmp_path / f"{_ds}_clean.csv")[1]
+        )
+        monkeypatch.setattr(
+            f"loaders.{ds}.load",
+            lambda csv, conn, _ds=ds: (call_order.append(("load", _ds)), 100)[1]
+        )
+
+    rc = seed.main(["all", "--truncate"])
+    assert rc == 0
+    truncate.assert_called_once()
+    loads = [ds for action, ds in call_order if action == "load"]
+    assert loads == ["igbo_api", "yorulect", "voa_ner", "naijasenti"]
+
+
+def test_all_abort_if_not_empty_refuses_when_table_has_rows(monkeypatch):
+    monkeypatch.setattr("seed.db.connect", lambda: MagicMock())
+    monkeypatch.setattr("seed.db.entries_row_count", lambda conn: 1)
+    rc = seed.main(["all", "--abort-if-not-empty"])
+    assert rc == 1
+
+
+def test_all_stops_on_first_failure(monkeypatch, tmp_path):
+    for ds in ("igbo_api", "yorulect", "voa_ner", "naijasenti"):
+        (tmp_path / f"{ds}_clean.csv").write_text(
+            "headword,pos,dialect_id,jsonb_data\n", encoding="utf-8"
+        )
+    monkeypatch.setattr("seed.CLEAN_DIR", tmp_path)
+    monkeypatch.setattr("seed.RAW_DIR", tmp_path)
+    monkeypatch.setattr("seed.db.connect", lambda: MagicMock())
+    monkeypatch.setattr("seed.db.entries_row_count", lambda conn: 0)
+    monkeypatch.setattr("seed.db.source_row_count", lambda conn, tag: 0)
+    monkeypatch.setattr("seed.db.truncate_all", MagicMock())
+
+    called = []
+    monkeypatch.setattr("loaders.igbo_api.download", lambda raw: called.append("d_ia"))
+    monkeypatch.setattr("loaders.igbo_api.transform",
+                        lambda raw, clean: tmp_path / "igbo_api_clean.csv")
+    monkeypatch.setattr("loaders.igbo_api.load",
+                        lambda csv, conn: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr("loaders.yorulect.download", lambda raw: called.append("d_yl"))
+
+    rc = seed.main(["all", "--truncate"])
+    assert rc == 1
+    assert "d_ia" in called
+    assert "d_yl" not in called

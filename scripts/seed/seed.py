@@ -124,7 +124,33 @@ def _do_sample(dataset: str) -> int:
 
 
 def _do_all(args) -> int:
-    raise NotImplementedError("_do_all wired in Task 15")
+    conn = db.connect()
+    try:
+        if args.abort_if_not_empty and db.entries_row_count(conn) > 0:
+            print("[all] refusing: entries table is not empty", file=sys.stderr)
+            return 1
+        if args.truncate:
+            print("[all] truncating entries and metadata")
+            db.truncate_all(conn)
+
+        summary: list[dict] = []
+        for ds in DATASET_ORDER:
+            print(f"\n=== {ds} ===")
+            try:
+                LOADERS[ds].download(RAW_DIR)
+                csv_path = LOADERS[ds].transform(RAW_DIR, CLEAN_DIR)
+                inserted = LOADERS[ds].load(csv_path, conn)
+                summary.append({"dataset": ds, "inserted": inserted})
+            except Exception as e:
+                print(f"[all] {ds} failed: {e}", file=sys.stderr)
+                return 1
+
+        print("\n=== Summary ===")
+        for row in summary:
+            print(f"  {row['dataset']:<12} inserted {row['inserted']}")
+        return 0
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
