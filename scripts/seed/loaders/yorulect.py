@@ -104,7 +104,10 @@ def transform(raw_root: Path, clean_dir: Path, per_dialect_cap: int | None = Non
                     },
                 })
 
-        if len(per_dialect) <= per_dialect_cap:
+        if per_dialect_cap is None:
+            # No cap: keep every unique sentence; underflow is meaningless.
+            sampled = per_dialect
+        elif len(per_dialect) <= per_dialect_cap:
             sampled = per_dialect
             if len(per_dialect) < per_dialect_cap:
                 underflow[folder_name] = (len(per_dialect), per_dialect_cap)

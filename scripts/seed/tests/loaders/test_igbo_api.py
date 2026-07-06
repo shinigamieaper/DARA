@@ -156,3 +156,23 @@ def test_load_returns_load_result(tmp_path):
     assert result.inserted == 9
     assert result.dropped_reasons == ["empty headword"]
     assert result.underflow == {}
+
+
+def test_transform_uncapped_keeps_all_entries(tmp_path):
+    """cap=None keeps every de-duplicated entry (all Central + all minority)."""
+    raw_dir = tmp_path / "raw"
+    (raw_dir / "igbo_api").mkdir(parents=True)
+    entries = (
+        [{"word": f"central_{i}", "wordClass": "noun", "definitions": [],
+          "examples": [], "dialects": []} for i in range(5)]
+        + [{"word": "ulo", "wordClass": "noun", "definitions": [],
+            "examples": [], "dialects": ["Ehugbo"]}]
+    )
+    (raw_dir / "igbo_api" / "igbo_api.json").write_text(json.dumps(entries), encoding="utf-8")
+
+    csv_path = igbo_api.transform(raw_dir, tmp_path / "clean", cap=None)
+
+    df = pd.read_csv(csv_path, dtype=str)
+    assert len(df) == 6  # nothing sampled away
+    assert (df["dialect_id"] == "5").sum() == 5
+    assert (df["dialect_id"] == "6").sum() == 1

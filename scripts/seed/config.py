@@ -15,11 +15,16 @@ DIALECT_MAP: dict[int, tuple[str, str]] = {
 
 RNG_SEED = 42
 
+# Per-source volume caps. A value of None means "no cap": the loader keeps
+# every verified, de-duplicated row from the raw data instead of sampling
+# down. Phase 1 corpus expansion (2026-07-06) set all caps to None to load
+# the full downloaded corpus (~60k rows). Numeric caps are still honoured
+# when a caller passes one explicitly to a loader's transform().
 CAPS = {
-    "igbo_api":   {"total": 1000},
-    "yorulect":   {"per_dialect": 250},
-    "voa_ner":    {"total": 750},
-    "naijasenti": {"yor": 500, "ibo": 500, "hau": 750},
+    "igbo_api":   {"total": None},
+    "yorulect":   {"per_dialect": None},
+    "voa_ner":    {"total": None},
+    "naijasenti": {"yor": None, "ibo": None, "hau": None},
 }
 
 SOURCE_TAGS = {

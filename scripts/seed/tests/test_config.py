@@ -19,12 +19,14 @@ def test_rng_seed_is_42():
     assert config.RNG_SEED == 42
 
 
-def test_caps_match_spec():
+def test_caps_are_uncapped():
+    # Phase 1 corpus expansion (2026-07-06): all caps are None, meaning each
+    # loader keeps every verified, de-duplicated row instead of sampling down.
     assert config.CAPS == {
-        "igbo_api":   {"total": 1000},
-        "yorulect":   {"per_dialect": 250},
-        "voa_ner":    {"total": 750},
-        "naijasenti": {"yor": 500, "ibo": 500, "hau": 750},
+        "igbo_api":   {"total": None},
+        "yorulect":   {"per_dialect": None},
+        "voa_ner":    {"total": None},
+        "naijasenti": {"yor": None, "ibo": None, "hau": None},
     }
 
 

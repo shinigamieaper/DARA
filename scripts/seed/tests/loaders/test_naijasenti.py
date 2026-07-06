@@ -131,3 +131,27 @@ def test_load_returns_load_result(tmp_path):
     assert result.sampled == 1500
     assert result.inserted == 1495
     assert len(result.dropped_reasons) == 5
+
+
+def test_transform_uncapped_keeps_all_per_language(tmp_path):
+    """A None quota per language keeps that language's whole de-duplicated pool."""
+    raw_root = tmp_path / "raw" / "naijasenti"
+    raw_root.mkdir(parents=True)
+    payload = {
+        "yor": [{"tweet": f"yor_{i}", "sentiment": "positive", "split": "train"}
+                for i in range(100)],
+        "ibo": [{"tweet": f"ibo_{i}", "sentiment": "neutral", "split": "train"}
+                for i in range(80)],
+        "hau": [{"tweet": f"hau_{i}", "sentiment": "negative", "split": "train"}
+                for i in range(60)],
+    }
+    (raw_root / "naijasenti.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    csv_path = naijasenti.transform(
+        raw_root.parent, tmp_path / "clean",
+        quotas={"yor": None, "ibo": None, "hau": None},
+    )
+    df = pd.read_csv(csv_path, dtype=str)
+    assert (df["dialect_id"] == "1").sum() == 100
+    assert (df["dialect_id"] == "5").sum() == 80
+    assert (df["dialect_id"] == "8").sum() == 60

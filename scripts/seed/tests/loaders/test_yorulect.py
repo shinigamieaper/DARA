@@ -152,3 +152,17 @@ def test_transform_writes_underflow_sidecar(tmp_path):
     data = json.loads(sidecar.read_text(encoding="utf-8"))
     # ife fixture has 2 unique sentences; with cap=250 it underflows.
     assert data["ife"] == [2, 250]
+
+
+def test_transform_uncapped_takes_all_no_underflow(tmp_path):
+    """per_dialect_cap=None keeps every unique sentence and records no underflow."""
+    raw = tmp_path / "raw" / "yorulect"
+    _copy_fixtures(raw)
+    csv_path = yorulect.transform(raw.parent, tmp_path / "clean", per_dialect_cap=None)
+
+    sidecar = tmp_path / "clean" / "yorulect_underflow.json"
+    assert json.loads(sidecar.read_text(encoding="utf-8")) == {}
+
+    df = pd.read_csv(csv_path, dtype=str)
+    # ife has 2 unique sentences; uncapped keeps both.
+    assert (df["dialect_id"] == "2").sum() == 2

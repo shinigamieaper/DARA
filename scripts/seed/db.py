@@ -3,6 +3,7 @@ import os
 from collections import Counter
 from dataclasses import dataclass, field
 import psycopg2
+from psycopg2.extras import execute_batch
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -89,28 +90,36 @@ SELECT entry_id, %s::jsonb FROM new_entry
 """
 
 
+_BATCH_PAGE_SIZE = 500
+
+
 def load_csv(csv_path, conn) -> tuple[int, int, list[str]]:
     """Insert every row of csv_path into entries+metadata in a single transaction.
+
+    Rows with an empty headword are dropped (with a reason) before insert.
+    The surviving rows are sent with psycopg2's execute_batch, which groups
+    many statements per round trip so a ~60k-row reseed against a remote
+    database completes in minutes rather than one round trip per row.
 
     Returns (sampled, inserted, dropped_reasons). `with conn:` commits on
     clean exit and rolls back on exception.
     """
     df = pd.read_csv(csv_path, dtype=str, encoding="utf-8", keep_default_na=False)
     sampled = len(df)
-    inserted = 0
     dropped: list[str] = []
+    params: list[tuple] = []
+    for row in df.itertuples(index=False):
+        if not row.headword or not str(row.headword).strip():
+            dropped.append("empty headword")
+            continue
+        params.append(
+            (row.headword, row.pos, int(row.dialect_id), row.jsonb_data)
+        )
     with conn:
         with conn.cursor() as cur:
-            for row in df.itertuples(index=False):
-                if not row.headword or not str(row.headword).strip():
-                    dropped.append("empty headword")
-                    continue
-                cur.execute(
-                    _PAIRED_INSERT_SQL,
-                    (row.headword, row.pos, int(row.dialect_id), row.jsonb_data),
-                )
-                inserted += 1
-    return sampled, inserted, dropped
+            execute_batch(cur, _PAIRED_INSERT_SQL, params,
+                          page_size=_BATCH_PAGE_SIZE)
+    return sampled, len(params), dropped
 
 
 def truncate_all(conn) -> None:

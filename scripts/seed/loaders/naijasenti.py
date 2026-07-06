@@ -98,7 +98,10 @@ def transform(raw_root: Path, clean_dir: Path,
             seen.add(hw)
             pool.append((hw, pos, did, jsonb))
         cap = quotas[lang]
-        sampled = pool if len(pool) <= cap else rng.sample(pool, cap)
+        if cap is None or len(pool) <= cap:
+            sampled = pool
+        else:
+            sampled = rng.sample(pool, cap)
         out_rows.extend(sampled)
 
     df = pd.DataFrame(

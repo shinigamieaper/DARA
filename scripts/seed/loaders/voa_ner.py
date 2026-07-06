@@ -122,8 +122,11 @@ def transform(raw_root: Path, clean_dir: Path, cap: int | None = None) -> Path:
         seen.add(hw)
         pool.append((hw, pos, did, jsonb))
 
-    rng = random.Random(RNG_SEED)
-    sampled = pool if len(pool) <= cap else rng.sample(pool, cap)
+    if cap is None or len(pool) <= cap:
+        sampled = pool
+    else:
+        rng = random.Random(RNG_SEED)
+        sampled = rng.sample(pool, cap)
     df = pd.DataFrame(
         [(hw, pos, did, json.dumps(j, ensure_ascii=False)) for hw, pos, did, j in sampled],
         columns=["headword", "pos", "dialect_id", "jsonb_data"],

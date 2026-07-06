@@ -63,12 +63,16 @@ def transform(raw_root: Path, clean_dir: Path, cap: int | None = None) -> Path:
     minority = [t for t in deduped if t[2] in (6, 7)]
     central = [t for t in deduped if t[2] == 5]
 
-    rng = random.Random(RNG_SEED)
-    central_quota = max(0, cap - len(minority))
-    if central_quota >= len(central):
+    if cap is None:
+        # No cap: keep every de-duplicated entry (all minority + all Central).
         sampled_central = central
     else:
-        sampled_central = rng.sample(central, central_quota)
+        rng = random.Random(RNG_SEED)
+        central_quota = max(0, cap - len(minority))
+        if central_quota >= len(central):
+            sampled_central = central
+        else:
+            sampled_central = rng.sample(central, central_quota)
 
     final = minority + sampled_central
     df = pd.DataFrame(

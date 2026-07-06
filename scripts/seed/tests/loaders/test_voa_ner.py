@@ -97,3 +97,19 @@ def test_load_returns_load_result(tmp_path):
     assert result.sampled == 750
     assert result.inserted == 750
     assert result.dropped_reasons == []
+
+
+def test_transform_uncapped_keeps_all_unique(tmp_path):
+    """cap=None keeps the whole de-duplicated pool."""
+    raw_dir = tmp_path / "raw" / "voa_ner"
+    raw_dir.mkdir(parents=True)
+    entries = [
+        {"tokens": ["sentence", str(i)], "ner_tags": [0, 0], "split": "train"}
+        for i in range(30)
+    ]
+    (raw_dir / "voa_ner.json").write_text(json.dumps(entries), encoding="utf-8")
+
+    csv_path = voa_ner.transform(raw_dir.parent, tmp_path / "clean", cap=None)
+    df = pd.read_csv(csv_path, dtype=str)
+    assert len(df) == 30
+    assert df["headword"].is_unique

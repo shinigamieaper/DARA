@@ -42,7 +42,7 @@ def test_source_row_count_filters_by_source_tag():
     assert params == ("IgboAPI",)
 
 
-def test_load_csv_executes_paired_insert(tmp_path):
+def test_load_csv_batches_paired_insert(tmp_path):
     csv_path = tmp_path / "sample_clean.csv"
     pd.DataFrame([
         {"headword": "akwa", "pos": "noun", "dialect_id": "5",
@@ -53,21 +53,21 @@ def test_load_csv_executes_paired_insert(tmp_path):
 
     fake_conn = MagicMock()
     fake_conn.__enter__.return_value = fake_conn
-    cur = fake_conn.cursor.return_value.__enter__.return_value
 
-    sampled, inserted, dropped = db.load_csv(csv_path, fake_conn)
+    with patch("db.execute_batch") as eb:
+        sampled, inserted, dropped = db.load_csv(csv_path, fake_conn)
 
     assert sampled == 2
     assert inserted == 2
     assert dropped == []
-    assert cur.execute.call_count == 2
-    first_call = cur.execute.call_args_list[0]
-    sql = first_call[0][0]
-    params = first_call[0][1]
+    # One batched call carrying both rows' params.
+    eb.assert_called_once()
+    _, sql, params = eb.call_args.args[0], eb.call_args.args[1], eb.call_args.args[2]
     assert "WITH new_entry AS" in sql
     assert "INSERT INTO entries" in sql
     assert "INSERT INTO metadata" in sql
-    assert params == ("akwa", "noun", 5, '{"source": "IgboAPI"}')
+    assert params[0] == ("akwa", "noun", 5, '{"source": "IgboAPI"}')
+    assert len(params) == 2
 
 
 def test_load_csv_drops_null_headword_rows(tmp_path):
@@ -81,14 +81,15 @@ def test_load_csv_drops_null_headword_rows(tmp_path):
 
     fake_conn = MagicMock()
     fake_conn.__enter__.return_value = fake_conn
-    cur = fake_conn.cursor.return_value.__enter__.return_value
 
-    sampled, inserted, dropped = db.load_csv(csv_path, fake_conn)
+    with patch("db.execute_batch") as eb:
+        sampled, inserted, dropped = db.load_csv(csv_path, fake_conn)
 
     assert sampled == 2
     assert inserted == 1
     assert dropped == ["empty headword"]
-    assert cur.execute.call_count == 1
+    params = eb.call_args.args[2]
+    assert len(params) == 1
 
 
 def test_load_csv_keeps_row_whose_headword_is_literally_nan(tmp_path):
@@ -101,16 +102,16 @@ def test_load_csv_keeps_row_whose_headword_is_literally_nan(tmp_path):
 
     fake_conn = MagicMock()
     fake_conn.__enter__.return_value = fake_conn
-    cur = fake_conn.cursor.return_value.__enter__.return_value
 
-    sampled, inserted, dropped = db.load_csv(csv_path, fake_conn)
+    with patch("db.execute_batch") as eb:
+        sampled, inserted, dropped = db.load_csv(csv_path, fake_conn)
 
     assert sampled == 1
     assert inserted == 1
     assert dropped == []
-    assert cur.execute.call_count == 1
-    params = cur.execute.call_args_list[0][0][1]
-    assert params[0] == "nan"
+    params = eb.call_args.args[2]
+    assert len(params) == 1
+    assert params[0][0] == "nan"
 
 
 def test_truncate_all_runs_truncate_with_cascade():
