@@ -6,10 +6,10 @@ from pathlib import Path
 import db
 import preflight as preflight_module
 import verify as verify_module
-from loaders import igbo_api, yorulect, voa_ner, naijasenti
+from loaders import igbo_api, yorulect, voa_ner, naijasenti, yoruba_dict, hausa_dict
 from config import DATASET_ORDER, SOURCE_TAGS
 
-DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti")
+DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict")
 
 CLEAN_DIR = Path(__file__).resolve().parent.parent.parent / "clean"
 RAW_DIR = Path(__file__).resolve().parent.parent.parent / "raw"
@@ -19,6 +19,8 @@ LOADERS = {
     "yorulect": yorulect,
     "voa_ner": voa_ner,
     "naijasenti": naijasenti,
+    "yoruba_dict": yoruba_dict,
+    "hausa_dict": hausa_dict,
 }
 
 
@@ -120,6 +122,12 @@ def _do_sample(dataset: str) -> int:
                 if i == 3:
                     break
                 print(line.rstrip())
+    elif dataset in ("yoruba_dict", "hausa_dict"):
+        jsonl_path = raw_root / f"{dataset}.jsonl"
+        with open(jsonl_path, "r", encoding="utf-8") as f:
+            first_line = f.readline()
+        print(f"[sample] {dataset} line 0:")
+        print(_json.dumps(_json.loads(first_line), ensure_ascii=False, indent=2))
     return 0
 
 

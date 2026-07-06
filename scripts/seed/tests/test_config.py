@@ -23,21 +23,27 @@ def test_caps_are_uncapped():
     # Phase 1 corpus expansion (2026-07-06): all caps are None, meaning each
     # loader keeps every verified, de-duplicated row instead of sampling down.
     assert config.CAPS == {
-        "igbo_api":   {"total": None},
-        "yorulect":   {"per_dialect": None},
-        "voa_ner":    {"total": None},
-        "naijasenti": {"yor": None, "ibo": None, "hau": None},
+        "igbo_api":    {"total": None},
+        "yorulect":    {"per_dialect": None},
+        "voa_ner":     {"total": None},
+        "naijasenti":  {"yor": None, "ibo": None, "hau": None},
+        "yoruba_dict": {"total": None},
+        "hausa_dict":  {"total": None},
     }
 
 
 def test_source_tags_match_spec():
     assert config.SOURCE_TAGS == {
-        "igbo_api":   "IgboAPI",
-        "yorulect":   "YorùLect",
-        "voa_ner":    "VOA Hausa",
-        "naijasenti": "NaijaSenti",
+        "igbo_api":    "IgboAPI",
+        "yorulect":    "YorùLect",
+        "voa_ner":     "VOA Hausa",
+        "naijasenti":  "NaijaSenti",
+        "yoruba_dict": "Wiktionary Yoruba",
+        "hausa_dict":  "Wiktionary Hausa",
     }
 
 
 def test_dataset_order():
-    assert config.DATASET_ORDER == ["igbo_api", "yorulect", "voa_ner", "naijasenti"]
+    assert config.DATASET_ORDER == [
+        "igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict",
+    ]

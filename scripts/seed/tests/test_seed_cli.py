@@ -91,8 +91,11 @@ def test_load_dispatch_force_overrides_source_check(monkeypatch, tmp_path):
     assert rc == 0
 
 
+_ALL_DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict")
+
+
 def test_all_truncate_path_calls_truncate_then_loads_all_in_order(monkeypatch, tmp_path):
-    for ds in ("igbo_api", "yorulect", "voa_ner", "naijasenti"):
+    for ds in _ALL_DATASETS:
         (tmp_path / f"{ds}_clean.csv").write_text(
             "headword,pos,dialect_id,jsonb_data\n", encoding="utf-8"
         )
@@ -105,7 +108,7 @@ def test_all_truncate_path_calls_truncate_then_loads_all_in_order(monkeypatch, t
     monkeypatch.setattr("seed.db.truncate_all", truncate)
 
     call_order = []
-    for ds in ("igbo_api", "yorulect", "voa_ner", "naijasenti"):
+    for ds in _ALL_DATASETS:
         monkeypatch.setattr(
             f"loaders.{ds}.download",
             lambda raw, _ds=ds: call_order.append(("download", _ds))
@@ -126,7 +129,7 @@ def test_all_truncate_path_calls_truncate_then_loads_all_in_order(monkeypatch, t
     assert rc == 0
     truncate.assert_called_once()
     loads = [ds for action, ds in call_order if action == "load"]
-    assert loads == ["igbo_api", "yorulect", "voa_ner", "naijasenti"]
+    assert loads == list(_ALL_DATASETS)
 
 
 def test_all_abort_if_not_empty_refuses_when_table_has_rows(monkeypatch):
@@ -137,7 +140,7 @@ def test_all_abort_if_not_empty_refuses_when_table_has_rows(monkeypatch):
 
 
 def test_all_stops_on_first_failure(monkeypatch, tmp_path):
-    for ds in ("igbo_api", "yorulect", "voa_ner", "naijasenti"):
+    for ds in _ALL_DATASETS:
         (tmp_path / f"{ds}_clean.csv").write_text(
             "headword,pos,dialect_id,jsonb_data\n", encoding="utf-8"
         )
@@ -163,7 +166,7 @@ def test_all_stops_on_first_failure(monkeypatch, tmp_path):
 
 
 def test_all_summary_includes_underflow_detail(monkeypatch, tmp_path, capsys):
-    for ds in ("igbo_api", "yorulect", "voa_ner", "naijasenti"):
+    for ds in _ALL_DATASETS:
         (tmp_path / f"{ds}_clean.csv").write_text(
             "headword,pos,dialect_id,jsonb_data\n", encoding="utf-8"
         )
@@ -180,7 +183,7 @@ def test_all_summary_includes_underflow_detail(monkeypatch, tmp_path, capsys):
             underflow=underflow or {},
         )
 
-    for ds in ("igbo_api", "voa_ner", "naijasenti"):
+    for ds in ("igbo_api", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict"):
         monkeypatch.setattr(f"loaders.{ds}.download", lambda raw, _ds=ds: None)
         monkeypatch.setattr(
             f"loaders.{ds}.transform",

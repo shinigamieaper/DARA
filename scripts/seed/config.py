@@ -21,17 +21,21 @@ RNG_SEED = 42
 # the full downloaded corpus (~60k rows). Numeric caps are still honoured
 # when a caller passes one explicitly to a loader's transform().
 CAPS = {
-    "igbo_api":   {"total": None},
-    "yorulect":   {"per_dialect": None},
-    "voa_ner":    {"total": None},
-    "naijasenti": {"yor": None, "ibo": None, "hau": None},
+    "igbo_api":    {"total": None},
+    "yorulect":    {"per_dialect": None},
+    "voa_ner":     {"total": None},
+    "naijasenti":  {"yor": None, "ibo": None, "hau": None},
+    "yoruba_dict": {"total": None},
+    "hausa_dict":  {"total": None},
 }
 
 SOURCE_TAGS = {
-    "igbo_api":   "IgboAPI",
-    "yorulect":   "YorùLect",
-    "voa_ner":    "VOA Hausa",
-    "naijasenti": "NaijaSenti",
+    "igbo_api":    "IgboAPI",
+    "yorulect":    "YorùLect",
+    "voa_ner":     "VOA Hausa",
+    "naijasenti":  "NaijaSenti",
+    "yoruba_dict": "Wiktionary Yoruba",
+    "hausa_dict":  "Wiktionary Hausa",
 }
 
-DATASET_ORDER = ["igbo_api", "yorulect", "voa_ner", "naijasenti"]
+DATASET_ORDER = ["igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict"]
