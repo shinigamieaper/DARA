@@ -91,7 +91,8 @@ def test_load_dispatch_force_overrides_source_check(monkeypatch, tmp_path):
     assert rc == 0
 
 
-_ALL_DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict")
+_ALL_DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict",
+                 "hausa_dict", "dialect_seeds")
 
 
 def test_all_truncate_path_calls_truncate_then_loads_all_in_order(monkeypatch, tmp_path):
@@ -183,7 +184,8 @@ def test_all_summary_includes_underflow_detail(monkeypatch, tmp_path, capsys):
             underflow=underflow or {},
         )
 
-    for ds in ("igbo_api", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict"):
+    for ds in ("igbo_api", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict",
+               "dialect_seeds"):
         monkeypatch.setattr(f"loaders.{ds}.download", lambda raw, _ds=ds: None)
         monkeypatch.setattr(
             f"loaders.{ds}.transform",

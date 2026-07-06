@@ -6,10 +6,12 @@ from pathlib import Path
 import db
 import preflight as preflight_module
 import verify as verify_module
-from loaders import igbo_api, yorulect, voa_ner, naijasenti, yoruba_dict, hausa_dict
+from loaders import (igbo_api, yorulect, voa_ner, naijasenti, yoruba_dict,
+                     hausa_dict, dialect_seeds)
 from config import DATASET_ORDER, SOURCE_TAGS
 
-DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict")
+DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict",
+            "hausa_dict", "dialect_seeds")
 
 CLEAN_DIR = Path(__file__).resolve().parent.parent.parent / "clean"
 RAW_DIR = Path(__file__).resolve().parent.parent.parent / "raw"
@@ -21,6 +23,7 @@ LOADERS = {
     "naijasenti": naijasenti,
     "yoruba_dict": yoruba_dict,
     "hausa_dict": hausa_dict,
+    "dialect_seeds": dialect_seeds,
 }
 
 
@@ -128,6 +131,17 @@ def _do_sample(dataset: str) -> int:
             first_line = f.readline()
         print(f"[sample] {dataset} line 0:")
         print(_json.dumps(_json.loads(first_line), ensure_ascii=False, indent=2))
+    elif dataset == "dialect_seeds":
+        seed_files = sorted(dialect_seeds._SEED_DIR.glob("dialect_seed_*.csv"))
+        if not seed_files:
+            print("[sample] dialect_seeds: no seed files under seed_data/")
+            return 0
+        print(f"[sample] dialect_seeds {seed_files[0].name} (head -3):")
+        with open(seed_files[0], "r", encoding="utf-8") as f:
+            for i, line in enumerate(f):
+                if i == 3:
+                    break
+                print(line.rstrip())
     return 0
 
 

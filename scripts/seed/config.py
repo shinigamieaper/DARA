@@ -27,6 +27,8 @@ CAPS = {
     "naijasenti":  {"yor": None, "ibo": None, "hau": None},
     "yoruba_dict": {"total": None},
     "hausa_dict":  {"total": None},
+    # dialect_seeds ships hand-curated CSVs; its transform ignores the cap.
+    "dialect_seeds": {"total": None},
 }
 
 SOURCE_TAGS = {
@@ -36,6 +38,8 @@ SOURCE_TAGS = {
     "naijasenti":  "NaijaSenti",
     "yoruba_dict": "Wiktionary Yoruba",
     "hausa_dict":  "Wiktionary Hausa",
+    "dialect_seeds": "Dialect Seed",
 }
 
-DATASET_ORDER = ["igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict", "hausa_dict"]
+DATASET_ORDER = ["igbo_api", "yorulect", "voa_ner", "naijasenti",
+                 "yoruba_dict", "hausa_dict", "dialect_seeds"]
