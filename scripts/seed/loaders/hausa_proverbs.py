@@ -59,43 +59,91 @@ def _is_stop_line(s: str) -> bool:
     return any(marker in upper for marker in _STOP_MARKERS)
 
 
+# A proverb body line that begins a Hausa transliteration starts with a
+# lowercase or uppercase Hausa word (letters), never punctuation/digits only.
+_HAUSA_START_RE = re.compile(r"^\s*(\d+)\s+([A-Za-z].*)$")
+# How far ahead a dropped/garbled OCR number may be before we treat the next
+# numbered line as the next proverb (survives a few missing numbers without
+# admitting page numbers, which are far out of sequence).
+_SEQ_TOLERANCE = 3
+
+
+def _find_start(lines: list[str]) -> int:
+    """Return the index of proverb #1 that begins the real, sequential list.
+
+    The preface and reference lists also contain numbered lines, so we only
+    accept a "1 <Hausa>" line that is followed by a "2 <Hausa>" line within a
+    short window — the signature of the actual proverb sequence, not a stray
+    footnote.
+    """
+    for i, line in enumerate(lines):
+        m = _HAUSA_START_RE.match(line)
+        if not m or int(m.group(1)) != 1 or _is_header_line(line.strip()):
+            continue
+        for j in range(i + 1, min(i + 60, len(lines))):
+            mj = _HAUSA_START_RE.match(lines[j])
+            if mj and int(mj.group(1)) == 2 and not _is_header_line(lines[j].strip()):
+                return i
+    return -1
+
+
+def _is_next_proverb(line: str, expected: int) -> int | None:
+    """If `line` starts the next proverb in sequence, return its number.
+
+    Accepts a number in (expected, expected + tolerance] with Hausa text after
+    it. Rejects out-of-sequence numbers (page numbers, footnote markers),
+    which is what keeps preface/appendix noise out of the proverb list.
+    """
+    m = _HAUSA_START_RE.match(line)
+    if not m or _is_header_line(line.strip()):
+        return None
+    num = int(m.group(1))
+    if expected < num <= expected + _SEQ_TOLERANCE:
+        return num
+    return None
+
+
 def _parse_proverbs(text: str) -> list[dict]:
     """Parse the OCR text into [{number, hausa, english, note}, ...].
 
-    Conservative: a block is only emitted when it has a numeric start, a
-    Hausa line, AND a non-empty English translation. Page headers and bare
-    page numbers are skipped wherever they appear. Parsing stops entirely
-    at the grammar-appendix section headers.
+    Starts at the real proverb #1 (see _find_start) and walks the numbered
+    sequence, gating each new proverb on ascending numbering. Within a block,
+    the first paragraph after the Hausa line is the English translation and
+    the remainder (up to the next proverb) is the note. Page headers and bare
+    page numbers are dropped wherever they appear; parsing stops at the
+    grammar-appendix section headers.
     """
     lines = text.splitlines()
     n = len(lines)
+    start = _find_start(lines)
+    if start < 0:
+        return []
+
     proverbs: list[dict] = []
-    i = 0
+    i = start
+    m0 = _HAUSA_START_RE.match(lines[i])
+    expected = int(m0.group(1))  # == 1
 
     while i < n:
-        stripped = lines[i].strip()
-        if _is_stop_line(stripped):
+        if _is_stop_line(lines[i].strip()):
             break
-
-        m = _PROVERB_START_RE.match(lines[i])
-        if not m or _is_header_line(stripped):
+        m = _HAUSA_START_RE.match(lines[i])
+        # Must be the current expected proverb number to open a block.
+        if not m or int(m.group(1)) != expected or _is_header_line(lines[i].strip()):
             i += 1
             continue
 
-        number = int(m.group(1))
+        number = expected
         hausa = re.sub(r"\s+", " ", m.group(2)).strip().rstrip(".").strip()
         i += 1
 
-        # blank/noise lines before the English translation block
         while i < n and not lines[i].strip():
             i += 1
 
         english_lines: list[str] = []
         while i < n:
             s = lines[i].strip()
-            if not s:
-                break
-            if _is_stop_line(s) or (_PROVERB_START_RE.match(lines[i]) and not _is_header_line(s)):
+            if not s or _is_stop_line(s) or _is_next_proverb(lines[i], number):
                 break
             if _is_header_line(s) or _is_page_number_line(s):
                 i += 1
@@ -107,22 +155,26 @@ def _parse_proverbs(text: str) -> list[dict]:
         note_lines: list[str] = []
         while i < n:
             s = lines[i].strip()
-            if _is_stop_line(s):
-                break
-            if _PROVERB_START_RE.match(lines[i]) and not _is_header_line(s):
+            if _is_stop_line(s) or _is_next_proverb(lines[i], number):
                 break
             if s and not _is_header_line(s) and not _is_page_number_line(s):
                 note_lines.append(s)
             i += 1
         note = " ".join(note_lines).strip()
 
-        if number and hausa and english:
+        if hausa and english:
             proverbs.append({
                 "number": number,
                 "hausa": hausa,
                 "english": english,
                 "note": note,
             })
+
+        # Advance to whatever number actually opens the next block (handles a
+        # few OCR-dropped numbers via the tolerance in _is_next_proverb).
+        if i < n:
+            nxt = _is_next_proverb(lines[i], number)
+            expected = nxt if nxt is not None else number + 1
 
     return proverbs
 

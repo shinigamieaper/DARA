@@ -80,6 +80,10 @@ router.get('/', async (req, res) => {
       params.push(language);
       conditions.push(`(l.name ILIKE $${params.length} OR l.iso_code ILIKE $${params.length})`);
     }
+    if (req.query.q) {
+      params.push(`%${req.query.q}%`);
+      conditions.push(`e.headword ILIKE $${params.length}`);
+    }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
     const pagination = buildPagination(req.query, params);
@@ -161,6 +165,10 @@ router.get('/random', async (req, res) => {
     if (language) {
       params.push(language);
       conditions.push(`(l.name ILIKE $${params.length} OR l.iso_code ILIKE $${params.length})`);
+    }
+    if (req.query.q) {
+      params.push(`%${req.query.q}%`);
+      conditions.push(`e.headword ILIKE $${params.length}`);
     }
 
     const where = `WHERE ${conditions.join(' AND ')}`;

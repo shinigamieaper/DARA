@@ -34,6 +34,8 @@ CAPS = {
     "hausa_proverbs": {"total": None},
     # content_seeds ships hand-curated CSVs; its transform ignores the cap.
     "content_seeds": {"total": None},
+    # oriki ships a project-owned committed CSV; its transform ignores the cap.
+    "oriki": {"total": None},
 }
 
 SOURCE_TAGS = {
@@ -48,8 +50,9 @@ SOURCE_TAGS = {
     "yoruba_proverbs": "Yoruba Proverbs",
     "hausa_proverbs": "Hausa Proverbs",
     "content_seeds": "Content Seed",
+    "oriki": "Oriki",
 }
 
 DATASET_ORDER = ["igbo_api", "yorulect", "voa_ner", "naijasenti",
                  "yoruba_dict", "hausa_dict", "dialect_seeds", "ehugbo_nt",
-                 "yoruba_proverbs", "hausa_proverbs", "content_seeds"]
+                 "yoruba_proverbs", "hausa_proverbs", "content_seeds", "oriki"]

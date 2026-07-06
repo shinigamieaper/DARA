@@ -8,12 +8,12 @@ import preflight as preflight_module
 import verify as verify_module
 from loaders import (igbo_api, yorulect, voa_ner, naijasenti, yoruba_dict,
                      hausa_dict, dialect_seeds, ehugbo_nt, yoruba_proverbs,
-                     hausa_proverbs, content_seeds)
+                     hausa_proverbs, content_seeds, oriki)
 from config import DATASET_ORDER, SOURCE_TAGS
 
 DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict",
             "hausa_dict", "dialect_seeds", "ehugbo_nt", "yoruba_proverbs",
-            "hausa_proverbs", "content_seeds")
+            "hausa_proverbs", "content_seeds", "oriki")
 
 CLEAN_DIR = Path(__file__).resolve().parent.parent.parent / "clean"
 RAW_DIR = Path(__file__).resolve().parent.parent.parent / "raw"
@@ -30,6 +30,7 @@ LOADERS = {
     "yoruba_proverbs": yoruba_proverbs,
     "hausa_proverbs": hausa_proverbs,
     "content_seeds": content_seeds,
+    "oriki": oriki,
 }
 
 
@@ -169,6 +170,13 @@ def _do_sample(dataset: str) -> int:
             return 0
         print(f"[sample] content_seeds {seed_files[0].name} (head -3):")
         with open(seed_files[0], "r", encoding="utf-8") as f:
+            for i, line in enumerate(f):
+                if i == 3:
+                    break
+                print(line.rstrip())
+    elif dataset == "oriki":
+        print(f"[sample] oriki {oriki._SRC.name} (head -3):")
+        with open(oriki._SRC, "r", encoding="utf-8") as f:
             for i, line in enumerate(f):
                 if i == 3:
                     break

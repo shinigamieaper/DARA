@@ -34,6 +34,7 @@ def test_caps_are_uncapped():
         "yoruba_proverbs": {"total": None},
         "hausa_proverbs": {"total": None},
         "content_seeds": {"total": None},
+        "oriki": {"total": None},
     }
 
 
@@ -50,6 +51,7 @@ def test_source_tags_match_spec():
         "yoruba_proverbs": "Yoruba Proverbs",
         "hausa_proverbs": "Hausa Proverbs",
         "content_seeds": "Content Seed",
+        "oriki": "Oriki",
     }
 
 
@@ -57,5 +59,5 @@ def test_dataset_order():
     assert config.DATASET_ORDER == [
         "igbo_api", "yorulect", "voa_ner", "naijasenti",
         "yoruba_dict", "hausa_dict", "dialect_seeds", "ehugbo_nt",
-        "yoruba_proverbs", "hausa_proverbs", "content_seeds",
+        "yoruba_proverbs", "hausa_proverbs", "content_seeds", "oriki",
     ]
