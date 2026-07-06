@@ -7,11 +7,13 @@ import db
 import preflight as preflight_module
 import verify as verify_module
 from loaders import (igbo_api, yorulect, voa_ner, naijasenti, yoruba_dict,
-                     hausa_dict, dialect_seeds, ehugbo_nt)
+                     hausa_dict, dialect_seeds, ehugbo_nt, yoruba_proverbs,
+                     hausa_proverbs, content_seeds)
 from config import DATASET_ORDER, SOURCE_TAGS
 
 DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict",
-            "hausa_dict", "dialect_seeds", "ehugbo_nt")
+            "hausa_dict", "dialect_seeds", "ehugbo_nt", "yoruba_proverbs",
+            "hausa_proverbs", "content_seeds")
 
 CLEAN_DIR = Path(__file__).resolve().parent.parent.parent / "clean"
 RAW_DIR = Path(__file__).resolve().parent.parent.parent / "raw"
@@ -25,6 +27,9 @@ LOADERS = {
     "hausa_dict": hausa_dict,
     "dialect_seeds": dialect_seeds,
     "ehugbo_nt": ehugbo_nt,
+    "yoruba_proverbs": yoruba_proverbs,
+    "hausa_proverbs": hausa_proverbs,
+    "content_seeds": content_seeds,
 }
 
 
@@ -138,6 +143,31 @@ def _do_sample(dataset: str) -> int:
             print("[sample] dialect_seeds: no seed files under seed_data/")
             return 0
         print(f"[sample] dialect_seeds {seed_files[0].name} (head -3):")
+        with open(seed_files[0], "r", encoding="utf-8") as f:
+            for i, line in enumerate(f):
+                if i == 3:
+                    break
+                print(line.rstrip())
+    elif dataset == "yoruba_proverbs":
+        jsonl_path = raw_root / "mxronga.jsonl"
+        with open(jsonl_path, "r", encoding="utf-8") as f:
+            first_line = f.readline()
+        print("[sample] yoruba_proverbs mxronga line 0:")
+        print(_json.dumps(_json.loads(first_line), ensure_ascii=False, indent=2))
+    elif dataset == "hausa_proverbs":
+        text = (raw_root / "merrick.txt").read_text(encoding="utf-8")
+        proverbs = hausa_proverbs._parse_proverbs(text)
+        if not proverbs:
+            print("[sample] hausa_proverbs: no proverbs parsed")
+            return 0
+        print("[sample] hausa_proverbs proverb 0:")
+        print(_json.dumps(proverbs[0], ensure_ascii=False, indent=2))
+    elif dataset == "content_seeds":
+        seed_files = sorted(content_seeds._SEED_DIR.glob("content_seed_*.csv"))
+        if not seed_files:
+            print("[sample] content_seeds: no seed files under seed_data/")
+            return 0
+        print(f"[sample] content_seeds {seed_files[0].name} (head -3):")
         with open(seed_files[0], "r", encoding="utf-8") as f:
             for i, line in enumerate(f):
                 if i == 3:

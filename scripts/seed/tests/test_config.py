@@ -31,6 +31,9 @@ def test_caps_are_uncapped():
         "hausa_dict":  {"total": None},
         "dialect_seeds": {"total": None},
         "ehugbo_nt": {"total": None},
+        "yoruba_proverbs": {"total": None},
+        "hausa_proverbs": {"total": None},
+        "content_seeds": {"total": None},
     }
 
 
@@ -44,6 +47,9 @@ def test_source_tags_match_spec():
         "hausa_dict":  "Wiktionary Hausa",
         "dialect_seeds": "Dialect Seed",
         "ehugbo_nt": "Ehugbo NT",
+        "yoruba_proverbs": "Yoruba Proverbs",
+        "hausa_proverbs": "Hausa Proverbs",
+        "content_seeds": "Content Seed",
     }
 
 
@@ -51,4 +57,5 @@ def test_dataset_order():
     assert config.DATASET_ORDER == [
         "igbo_api", "yorulect", "voa_ner", "naijasenti",
         "yoruba_dict", "hausa_dict", "dialect_seeds", "ehugbo_nt",
+        "yoruba_proverbs", "hausa_proverbs", "content_seeds",
     ]

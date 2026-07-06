@@ -30,6 +30,10 @@ CAPS = {
     # dialect_seeds ships hand-curated CSVs; its transform ignores the cap.
     "dialect_seeds": {"total": None},
     "ehugbo_nt": {"total": None},
+    "yoruba_proverbs": {"total": None},
+    "hausa_proverbs": {"total": None},
+    # content_seeds ships hand-curated CSVs; its transform ignores the cap.
+    "content_seeds": {"total": None},
 }
 
 SOURCE_TAGS = {
@@ -41,7 +45,11 @@ SOURCE_TAGS = {
     "hausa_dict":  "Wiktionary Hausa",
     "dialect_seeds": "Dialect Seed",
     "ehugbo_nt": "Ehugbo NT",
+    "yoruba_proverbs": "Yoruba Proverbs",
+    "hausa_proverbs": "Hausa Proverbs",
+    "content_seeds": "Content Seed",
 }
 
 DATASET_ORDER = ["igbo_api", "yorulect", "voa_ner", "naijasenti",
-                 "yoruba_dict", "hausa_dict", "dialect_seeds", "ehugbo_nt"]
+                 "yoruba_dict", "hausa_dict", "dialect_seeds", "ehugbo_nt",
+                 "yoruba_proverbs", "hausa_proverbs", "content_seeds"]

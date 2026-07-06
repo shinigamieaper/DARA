@@ -9,6 +9,8 @@ const { buildPagination } = require('./pagination');
 const languagesRouter = require('./routes/languages');
 const dialectsRouter = require('./routes/dialects');
 const entriesRouter = require('./routes/entries');
+const proverbsRouter = require('./routes/proverbs');
+const praiseRouter = require('./routes/praise');
 
 const app = express();
 
@@ -24,6 +26,8 @@ app.get('/', (req, res) => res.redirect('/api-docs'));
 app.use('/api/languages', languagesRouter);
 app.use('/api/dialects', dialectsRouter);
 app.use('/api/entries', entriesRouter);
+app.use('/api/proverbs', proverbsRouter);
+app.use('/api/praise', praiseRouter);
 
 /**
  * @swagger
