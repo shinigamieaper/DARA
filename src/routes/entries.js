@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const pool = require('../db');
 const requireApiKey = require('../middleware/auth');
+const { buildPagination } = require('../pagination');
 
 const router = Router();
 
@@ -29,6 +30,25 @@ const router = Router();
  *         required: false
  *         description: Filter by language name (e.g. `Yoruba`) or ISO 639-3 code (e.g. `yor`).
  *         example: yor
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 500
+ *         required: false
+ *         description: >
+ *           Maximum number of entries to return (page size). Clamped to 500.
+ *           Omit to return the full result set (backward compatible).
+ *         example: 50
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *         required: false
+ *         description: Number of entries to skip before returning results (for paging).
+ *         example: 0
  *     responses:
  *       200:
  *         description: A list of entries.
@@ -52,7 +72,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-// GET /api/entries — with optional ?dialect= and ?language= filters
+// GET /api/entries — with optional ?dialect=, ?language=, ?limit=, ?offset=
 router.get('/', async (req, res) => {
   try {
     const { dialect, language } = req.query;
@@ -69,13 +89,14 @@ router.get('/', async (req, res) => {
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const pagination = buildPagination(req.query, params);
     const query = `
       SELECT e.*, d.name AS dialect_name, l.name AS language_name
       FROM entries e
       JOIN dialects d ON e.dialect_id = d.dialect_id
       JOIN languages l ON d.language_id = l.language_id
       ${where}
-      ORDER BY e.headword
+      ORDER BY e.headword${pagination}
     `;
 
     const { rows } = await pool.query(query, params);

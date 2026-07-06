@@ -4,6 +4,7 @@ const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const pool = require('./db');
 const swaggerSpec = require('./swagger');
+const { buildPagination } = require('./pagination');
 
 const languagesRouter = require('./routes/languages');
 const dialectsRouter = require('./routes/dialects');
@@ -42,6 +43,23 @@ app.use('/api/entries', entriesRouter);
  *           type: string
  *         description: Substring to search for (case-insensitive).
  *         example: omi
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 500
+ *         required: false
+ *         description: Maximum number of matches to return (clamped to 500). Omit to return all matches.
+ *         example: 50
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *         required: false
+ *         description: Number of matches to skip before returning results.
+ *         example: 0
  *     responses:
  *       200:
  *         description: List of matching entries.
@@ -80,14 +98,16 @@ app.get('/api/search', async (req, res) => {
     return res.status(400).json({ error: 'Query parameter q is required' });
   }
   try {
+    const params = [`%${q}%`];
+    const pagination = buildPagination(req.query, params);
     const { rows } = await pool.query(
       `SELECT e.*, d.name AS dialect_name, l.name AS language_name
        FROM entries e
        JOIN dialects d ON e.dialect_id = d.dialect_id
        JOIN languages l ON d.language_id = l.language_id
        WHERE e.headword ILIKE $1
-       ORDER BY e.headword`,
-      [`%${q}%`]
+       ORDER BY e.headword${pagination}`,
+      params
     );
     res.json(rows);
   } catch (err) {
