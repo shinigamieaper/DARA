@@ -30,6 +30,7 @@ def test_caps_are_uncapped():
         "yoruba_dict": {"total": None},
         "hausa_dict":  {"total": None},
         "dialect_seeds": {"total": None},
+        "ehugbo_nt": {"total": None},
     }
 
 
@@ -42,11 +43,12 @@ def test_source_tags_match_spec():
         "yoruba_dict": "Wiktionary Yoruba",
         "hausa_dict":  "Wiktionary Hausa",
         "dialect_seeds": "Dialect Seed",
+        "ehugbo_nt": "Ehugbo NT",
     }
 
 
 def test_dataset_order():
     assert config.DATASET_ORDER == [
         "igbo_api", "yorulect", "voa_ner", "naijasenti",
-        "yoruba_dict", "hausa_dict", "dialect_seeds",
+        "yoruba_dict", "hausa_dict", "dialect_seeds", "ehugbo_nt",
     ]

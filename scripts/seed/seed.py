@@ -7,11 +7,11 @@ import db
 import preflight as preflight_module
 import verify as verify_module
 from loaders import (igbo_api, yorulect, voa_ner, naijasenti, yoruba_dict,
-                     hausa_dict, dialect_seeds)
+                     hausa_dict, dialect_seeds, ehugbo_nt)
 from config import DATASET_ORDER, SOURCE_TAGS
 
 DATASETS = ("igbo_api", "yorulect", "voa_ner", "naijasenti", "yoruba_dict",
-            "hausa_dict", "dialect_seeds")
+            "hausa_dict", "dialect_seeds", "ehugbo_nt")
 
 CLEAN_DIR = Path(__file__).resolve().parent.parent.parent / "clean"
 RAW_DIR = Path(__file__).resolve().parent.parent.parent / "raw"
@@ -24,6 +24,7 @@ LOADERS = {
     "yoruba_dict": yoruba_dict,
     "hausa_dict": hausa_dict,
     "dialect_seeds": dialect_seeds,
+    "ehugbo_nt": ehugbo_nt,
 }
 
 
