@@ -1,0 +1,11 @@
+id,name,gender,language,praise_text,meaning,category,keywords
+1,Musa,male,hausa,Jarumi mai karfi wanda baya tsoro,Strong hero who fears nothing,warrior,strength;fearless
+2,Aisha,female,hausa,Sarauniya mai daraja da mutunci,Respected and honorable queen,royalty,honor;queen
+3,Bello,male,hausa,Dan sarki mai girma da iko,Son of a king with authority,royalty,king;power
+15,Fatima,female,hausa,Faɗima uwar kirki mace mai tausayi da jinƙai Fatima mai zuciya mai kyau wadda ke kawo farin ciki ga kowa yarinya mai albarka da daraja Fatima wadda take da haƙuri da ladabi mace mai son zaman lafiya da ƙaunar mutane wadda ke haskaka gida da farin ciki Fatima abin alfahari ga iyayenta wadda take da hankali da nutsuwa mace mai karamci da mutunci wadda ke taimakon na kusa da na nesa Fatima mai cike da rahama da soyayya wadda kowa ke yabawa saboda kyawawan halayenta, Kind and compassionate woman,kindness,peace;love;respect
+5,Usman,male,hausa,Mutum mai hikima da basira,Man of wisdom and intelligence,wisdom,wisdom;intelligence
+6,Zainab,female,hausa,Mace mai kyau da ladabi,Beautiful and respectful woman,beauty,beauty;respect
+7,Ibrahim,male,hausa,Mutum mai imani da gaskiya,Faithful and truthful man,faith,truth;faith
+8,Halima,female,hausa,Mace mai hakuri da juriya,Patient and resilient woman,virtue,patience;strength
+9,Sani,male,hausa,Jarumi mai nasara a kowane lokaci,Victorious hero always,success,victory;strength
+10,Hauwa,female,hausa,Uwar gida mai daraja da kulawa,Respected and caring mother,care,care;family

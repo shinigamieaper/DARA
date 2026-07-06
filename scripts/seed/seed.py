@@ -175,8 +175,12 @@ def _do_sample(dataset: str) -> int:
                     break
                 print(line.rstrip())
     elif dataset == "oriki":
-        print(f"[sample] oriki {oriki._SRC.name} (head -3):")
-        with open(oriki._SRC, "r", encoding="utf-8") as f:
+        files = oriki._source_files()
+        if not files:
+            print("[sample] oriki: no seed_data/oriki_source*.csv files")
+            return 0
+        print(f"[sample] oriki {files[0].name} (head -3):")
+        with open(files[0], "r", encoding="utf-8") as f:
             for i, line in enumerate(f):
                 if i == 3:
                     break
