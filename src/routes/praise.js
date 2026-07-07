@@ -82,7 +82,15 @@ router.get('/', async (req, res) => {
     }
     if (req.query.q) {
       params.push(`%${req.query.q}%`);
-      conditions.push(`e.headword ILIKE $${params.length}`);
+      // Match the term against the name (headword) AND the praise text,
+      // subject, and meaning — so a term that aligns with Igbo/Hausa content
+      // (which is keyed by subject/line, not personal names) still surfaces.
+      conditions.push(
+        `(e.headword ILIKE $${params.length}`
+        + ` OR m.jsonb_data->>'praise_text' ILIKE $${params.length}`
+        + ` OR m.jsonb_data->>'subject' ILIKE $${params.length}`
+        + ` OR m.jsonb_data->>'meaning' ILIKE $${params.length})`
+      );
     }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
@@ -168,7 +176,15 @@ router.get('/random', async (req, res) => {
     }
     if (req.query.q) {
       params.push(`%${req.query.q}%`);
-      conditions.push(`e.headword ILIKE $${params.length}`);
+      // Match the term against the name (headword) AND the praise text,
+      // subject, and meaning — so a term that aligns with Igbo/Hausa content
+      // (which is keyed by subject/line, not personal names) still surfaces.
+      conditions.push(
+        `(e.headword ILIKE $${params.length}`
+        + ` OR m.jsonb_data->>'praise_text' ILIKE $${params.length}`
+        + ` OR m.jsonb_data->>'subject' ILIKE $${params.length}`
+        + ` OR m.jsonb_data->>'meaning' ILIKE $${params.length})`
+      );
     }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
