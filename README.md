@@ -1,124 +1,69 @@
-# DARA — Dialect-Aware Digital Repository and API for Indigenous Nigerian Languages
+DARA - DEVELOPMENT OF A DIALECT-AWARE DIGITAL REPOSITORY AND API
+FOR INDIGENOUS NIGERIAN LANGUAGES
 
-DARA is a REST API and linguistic repository for Yoruba, Hausa, and Igbo, built to make dialect-labelled data for these languages queryable in one place instead of scattered across separate, single-purpose datasets. It pairs normalized relational tables (languages, dialects, entries) with a JSONB metadata field per entry, so source-specific detail — sentiment labels, tonal marks, definitions, corpus splits — is preserved without forcing every dataset into the same fixed columns.
+Department of Mathematical and Computer Sciences
+College of Natural and Applied Sciences
+Fountain University, Osogbo
+Supervisor: Dr. (Mrs) M. A. Ogunrinde
+July 2026
 
-The repository holds **80,080 verified entries** across **9 dialects** in the 3 languages, drawn from 10 open-licensed sources, and runs live at:
+SUBMITTED BY
+  BELLO, Jamiu Muhammad            FUO220218
+  BABALOLA, Hamid Taiwo            FUO220219
+  OYEKOLA, AbdulSalam Obajuwon     FUO230403
 
-- **API:** https://dara-ze5e.onrender.com/api
-- **Interactive docs (Swagger UI):** https://dara-ze5e.onrender.com/api-docs
+------------------------------------------------------------------
+CONTENTS OF THIS SUBMISSION
+------------------------------------------------------------------
 
-## Features
+01_Project_Report
+    DARA_Project_Report_FINAL.docx    Complete report (Word)
+    DARA_Project_Report_FINAL.pdf     Complete report (PDF)
+    DARA_Certification_Signed.pdf     Signed certification page
 
-- Language and dialect listing, with dialect filtering by name or ID
-- Entry retrieval and headword search across all three languages
-- Praise-poetry (`/praise`) and proverbs (`/proverbs`) endpoints, each with a `/random` variant
-- API-key-protected write operations (create, update, delete)
-- Swagger/OpenAPI documentation generated from source annotations
-- A Python seeding pipeline (download → transform → load → verify) that rebuilds the database from the cleaned source CSVs
+02_Project_Summary
+    DARA_Project_Summary_15pg.docx    15-page summary (Word)
+    DARA_Project_Summary_15pg.pdf     15-page summary (PDF)
 
-## Tech stack
+03_Source_Code
+    src/                Node.js and Express REST API
+    scripts/seed/       Python data seeding pipeline and tests
+    clean/              Cleaned source datasets
+    docs/               Design specifications
+    package.json        Node dependencies
+    requirements.txt    Python dependencies
+    .env.example        Environment variable template
+    README.md           Repository documentation
 
-| Layer | Technology |
-|---|---|
-| API | Node.js, Express |
-| Database | PostgreSQL (hybrid relational + JSONB, GIN + B-tree indexes) |
-| Docs | swagger-jsdoc, swagger-ui-express |
-| Data pipeline | Python, pandas, psycopg2, datasets, gdown |
-| Hosting | API on Render, database on Railway, edge/CDN via Cloudflare |
+04_Installation_Guide
+    DARA_Installation_Guide.docx / .pdf
 
-## API overview
+05_User_Manual
+    DARA_User_Manual.docx / .pdf
+    Contains the hosting link and access credentials.
 
-All routes are mounted under `/api`. Read endpoints are open; write endpoints require an `x-api-key` header.
+------------------------------------------------------------------
+QUICK ACCESS
+------------------------------------------------------------------
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/languages` | GET | List the three languages with ISO 639-3 codes |
-| `/dialects` | GET | List all dialects; optional `language` filter |
-| `/entries` | GET | List entries; optional `language` / `dialect` filters |
-| `/entries/{id}` | GET | Get one entry with its JSONB metadata |
-| `/entries` | POST 🔒 | Create an entry |
-| `/entries/{id}` | PATCH 🔒 | Update an entry |
-| `/entries/{id}` | DELETE 🔒 | Delete an entry |
-| `/search?q=` | GET | Headword substring search across all languages |
-| `/praise` | GET | Praise poetry (language filter, `q` search) |
-| `/praise/random` | GET | One random praise poem |
-| `/proverbs` | GET | Proverbs with translations (language filter, `q` search) |
-| `/proverbs/random` | GET | One random proverb |
+Live API documentation   https://dara-ze5e.onrender.com/api-docs
+Live API base URL        https://dara-ze5e.onrender.com/api
+Source repository        https://github.com/shinigamieaper/DARA
 
-🔒 = requires a valid `x-api-key` header.
+ACCESS MODEL
+  Read access    Open. No login required for any GET endpoint.
+  Write access   Requires the API key in the x-api-key header.
+                 Key: dialect2026
 
-## Getting started
+  DARA is a programmatic API, not a website with user accounts,
+  so there are no usernames or passwords. Full detail is in the
+  User Manual, section 3.
 
-### Prerequisites
+NOTE ON HOSTING
+  The service runs on free-tier hosting and suspends when idle.
+  The first request after a period of inactivity can take up to
+  a minute to respond while the service restarts.
 
-- Node.js 18+ and npm
-- Python 3.10+ (only needed if you're rebuilding the dataset yourself)
-- A PostgreSQL instance (local or managed, e.g. Railway)
-
-### Installation
-
-```bash
-git clone https://github.com/shinigamieaper/DARA.git
-cd DARA
-npm install
-```
-
-Create a `.env` file in the project root (never commit this file):
-
-```
-DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
-API_KEY=<a secure random string>
-PORT=3000
-```
-
-> If you ever find real credentials committed to a repo or shared file, rotate them immediately and remove them from history — don't reuse a leaked value.
-
-Start the API:
-
-```bash
-npm start        # production
-npm run dev      # with nodemon, auto-restart on changes
-```
-
-The service will be available at `http://localhost:3000/api`, with docs at `http://localhost:3000/api-docs`.
-
-### Rebuilding the dataset (optional)
-
-The `clean/` folder ships the full cleaned corpus as 10 CSV files (one per source). To reload it into a fresh database:
-
-```bash
-pip install -r requirements.txt
-python scripts/seed/<pipeline-entrypoint>.py   # download → transform → load → verify
-```
-
-The pipeline guards against double-loading and includes a verify step that checks row counts against the source files.
-
-## Data model
-
-Four tables:
-
-- **languages** — name, ISO 639-3 code
-- **dialects** — name, region, `language_id` foreign key
-- **entries** — headword (`TEXT`), part-of-speech, `dialect_id` foreign key
-- **metadata** — one JSONB record per entry for source-specific fields (definitions, sentiment labels, corpus splits, tonal/morphological notes, etc.)
-
-Entries assigned to a language's principal dialect by default (rather than a verified dialect label) carry a `dialect_assigned_default` flag in their metadata, so verified and default labels stay distinguishable.
-
-## Licensing
-
-- **Source code** (this API and the Python seeding pipeline): MIT — see [`LICENSE`](./LICENSE).
-- **Linguistic data** (CSV files under `clean/`, seed files, and API-served records): CC BY-SA 4.0, **with one exception** — entries derived from the MENYO-20k Yoruba proverbs are CC BY-NC 4.0 (non-commercial only). Each entry records its own source license in `jsonb_data.license`, so NC rows are filterable for commercial use cases. Full details, including per-source upstream licenses and required attribution, are in [`DATA_LICENSE.md`](./DATA_LICENSE.md).
-
-## Limitations
-
-- Text only — no audio, pronunciation, or phonetic data.
-- A data service, not a language model — it does not translate, tag, or generate text.
-- Fixed scope: Yoruba, Igbo, and Hausa, and the 9 dialects currently modelled.
-- Dialect labelling depth follows the source data: Yoruba is labelled at dialect level; Igbo and Hausa material that only resolves to the language level is assigned to that language's principal dialect and flagged accordingly.
-- API-first: no consumer-facing web or mobile front end is shipped.
-
-## Contributors
-
-Bello Jamiu Muhammad, Babalola Hamid Taiwo, and Oyekola AbdulSalam Obajuwon — Department of Mathematical and Computer Sciences, Fountain University, Osogbo.
-
-Built as an undergraduate final-year project, supervised by Dr. (Mrs) M. A. Ogunrinde.
+NO APK IS INCLUDED
+  DARA is a REST API and database, not a mobile application, so
+  requirement 6 does not apply to this project.
