@@ -10,7 +10,7 @@ July 2026
 SUBMITTED BY
   BELLO, Jamiu Muhammad            FUO220218
   BABALOLA, Hamid Taiwo            FUO220219
-  OYEKOLA, AbdulSalam Obajuwon     FUO230403
+  OYEKOLA, Obajuwon                FUO230403
 
 ------------------------------------------------------------------
 CONTENTS OF THIS SUBMISSION
@@ -53,7 +53,7 @@ Source repository        https://github.com/shinigamieaper/DARA
 ACCESS MODEL
   Read access    Open. No login required for any GET endpoint.
   Write access   Requires the API key in the x-api-key header.
-                 Key: dialect2026
+                 The key is private and is given only to the maintainers.
 
   DARA is a programmatic API, not a website with user accounts,
   so there are no usernames or passwords. Full detail is in the
